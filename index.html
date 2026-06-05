@@ -425,6 +425,20 @@
       background: linear-gradient(135deg, rgba(255, 77, 141, 0.14), rgba(22, 244, 208, 0.16), rgba(255, 255, 255, 0.54));
     }
 
+    .back-section.case,
+    .back-section.link {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(255, 210, 63, 0.18), rgba(255, 255, 255, 0.5), rgba(0, 168, 255, 0.12));
+    }
+
+    .back-layout.count-1 {
+      grid-template-columns: 1fr;
+    }
+
+    .back-layout.count-3 .back-section:last-child {
+      grid-column: 1 / -1;
+    }
+
     .back-label {
       display: block;
       margin-bottom: 7px;
@@ -537,6 +551,53 @@
       text-align: center;
       box-shadow: var(--inner-light);
       backdrop-filter: blur(18px) saturate(1.3);
+    }
+
+    .reading-timer {
+      display: none;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.48);
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      box-shadow: var(--inner-light);
+      backdrop-filter: blur(18px) saturate(1.3);
+    }
+
+    .reading-timer.active {
+      display: grid;
+      grid-template-columns: auto 1fr;
+    }
+
+    .timer-text {
+      color: rgba(16, 24, 40, 0.68);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .timer-track {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .timer-fill {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--lime), var(--gold), var(--accent));
+      transition: width 0.2s linear;
+    }
+
+    .setting-row {
+      display: grid;
+      grid-template-columns: 1fr 92px;
+      gap: 10px;
+      align-items: end;
     }
 
     .panel {
@@ -1019,6 +1080,10 @@
             <div class="meter" aria-hidden="true"><span id="meter"></span></div>
           </div>
           <div class="motivation" id="motivation">今天也在变强。</div>
+          <div class="reading-timer" id="readingTimer">
+            <span class="timer-text" id="timerText">阅读 5s</span>
+            <span class="timer-track" aria-hidden="true"><span class="timer-fill" id="timerFill"></span></span>
+          </div>
         </div>
 
         <aside class="panel" aria-label="编辑和导入">
@@ -1059,6 +1124,11 @@ A: 反面"></textarea>
           </div>
 
           <div class="pane" id="pane-manage">
+            <div class="setting-row">
+              <label for="timerSeconds">背面阅读秒表（秒）</label>
+              <input class="input" id="timerSeconds" type="number" min="0" max="60" step="1" value="5">
+            </div>
+            <p class="hint">翻到背面时开始倒计时；设为 0 可关闭秒表。</p>
             <div class="two">
               <button class="btn" id="exportDeck">导出当前组</button>
               <button class="btn warn" id="clearDeck">清空当前组</button>
@@ -1074,6 +1144,7 @@ A: 反面"></textarea>
 
   <script>
     const STORAGE_KEY = "ipad-memory-cards-v1";
+    const TIMER_KEY = "ipad-memory-cards-timer-seconds";
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1108,6 +1179,10 @@ A: 反面"></textarea>
     let motivationIndex = 0;
     let touchStartX = 0;
     let touchStartY = 0;
+    let timerSeconds = Number(localStorage.getItem(TIMER_KEY) || 5);
+    let timerRemaining = timerSeconds;
+    let timerStartedAt = 0;
+    let timerId = 0;
 
     const motivations = [
       "今天也在变强。✨",
@@ -1137,7 +1212,7 @@ A: 反面"></textarea>
 一句话答案：
 思维导图：
 形象记忆：
-知识链接：
+真实案例：
 
 **规则：**
 1. 每张卡只考一个知识点。
@@ -1146,7 +1221,7 @@ A: 反面"></textarea>
 4. 每张卡的思维导图只画当前知识点的小图，不画整章大图。
 5. 思维导图最多4个一级分支，最多2层。
 6. 形象记忆必须是具体画面，要有「人、动作、场景」。
-7. 知识链接只写一句，说明它和前后概念或应用场景的关系。
+7. 真实案例只写一个小场景，说明这个知识点怎么在真实学习、咨询、工作或生活里使用。
 8. 宁可多拆卡，也不要一张卡太拥挤。
 
 **示例：**
@@ -1158,7 +1233,7 @@ A: 反面"></textarea>
 ├─ 效果：被听见、不被评判
 └─ 目的：让来访者继续表达
 形象记忆：像咨询师拿着字幕牌，把来访者心里说不出的感受写出来。
-知识链接：共情是建立关系的核心技术，也是澄清和总结的基础。
+真实案例：来访者说“我就是很烦”，咨询师回应“你像是又累又怕没人理解”，对方开始继续说细节。
 
 **资料如下：**`,
 
@@ -1215,6 +1290,10 @@ A: 反面"></textarea>
       progressText: $("progressText"),
       sideText: $("sideText"),
       motivation: $("motivation"),
+      readingTimer: $("readingTimer"),
+      timerText: $("timerText"),
+      timerFill: $("timerFill"),
+      timerSeconds: $("timerSeconds"),
       meter: $("meter"),
       drawerScrim: $("drawerScrim"),
       openGroups: $("openGroups"),
@@ -1317,6 +1396,7 @@ A: 反面"></textarea>
       els.sideText.textContent = flipped ? "反面" : "正面";
       els.motivation.textContent = count ? motivations[motivationIndex % motivations.length] : "先放进一张卡片，今天就开始。";
       els.meter.style.width = count ? `${((currentIndex + 1) / count) * 100}%` : "0";
+      updateTimerDisplay();
       els.prevCard.disabled = count <= 1;
       els.nextCard.disabled = count <= 1;
       els.flipCard.disabled = count === 0;
@@ -1379,12 +1459,15 @@ A: 反面"></textarea>
       if (!sections) {
         return `<div class="back-fallback">${escapeHtml(value)}</div>`;
       }
+      const blocks = [
+        sections.summary ? backSection("summary", "一句话答案", sections.summary) : "",
+        sections.map ? backSection("map", "思维导图", sections.map) : "",
+        sections.image ? backSection("image", "形象记忆", sections.image) : "",
+        sections.case ? backSection("case", "真实案例", sections.case) : ""
+      ].filter(Boolean);
       return `
-        <div class="back-layout">
-          ${backSection("summary", "一句话答案", sections.summary)}
-          ${backSection("map", "思维导图", sections.map)}
-          ${backSection("image", "形象记忆", sections.image)}
-          ${backSection("link", "知识链接", sections.link)}
+        <div class="back-layout count-${blocks.length}">
+          ${blocks.join("")}
         </div>
       `;
     }
@@ -1401,13 +1484,19 @@ A: 反面"></textarea>
     function extractBackSections(value) {
       const text = String(value || "").trim();
       const labels = [
-        ["summary", "一句话答案："],
-        ["map", "思维导图："],
-        ["image", "形象记忆："],
-        ["link", "知识链接："]
+        ["summary", ["一句话答案：", "一句话答案:"]],
+        ["map", ["思维导图：", "思维导图:"]],
+        ["image", ["形象记忆：", "形象记忆:"]],
+        ["case", ["真实案例：", "真实案例:", "活学活用：", "活学活用:", "知识链接：", "知识链接:"]]
       ];
       const positions = labels
-        .map(([key, label]) => ({ key, label, index: text.indexOf(label) }))
+        .map(([key, aliases]) => {
+          const found = aliases
+            .map((label) => ({ label, index: text.indexOf(label) }))
+            .filter((item) => item.index >= 0)
+            .sort((a, b) => a.index - b.index)[0];
+          return found ? { key, label: found.label, index: found.index } : { key, label: aliases[0], index: -1 };
+        })
         .filter((item) => item.index >= 0)
         .sort((a, b) => a.index - b.index);
       if (positions.length < 2) return null;
@@ -1426,6 +1515,11 @@ A: 反面"></textarea>
       flipped = !flipped;
       if (flipped) motivationIndex += 1;
       render();
+      if (flipped) {
+        startReadingTimer();
+      } else {
+        stopReadingTimer();
+      }
     }
 
     function move(step) {
@@ -1434,6 +1528,7 @@ A: 反面"></textarea>
       currentIndex = (currentIndex + step + group.cards.length) % group.cards.length;
       flipped = false;
       motivationIndex += 1;
+      stopReadingTimer();
       render();
     }
 
@@ -1453,6 +1548,62 @@ A: 反面"></textarea>
 
     function closeDrawers() {
       document.body.classList.remove("drawer-left", "drawer-right");
+    }
+
+    function setTimerSeconds(value) {
+      const next = Math.max(0, Math.min(60, Number(value) || 0));
+      timerSeconds = next;
+      timerRemaining = next;
+      localStorage.setItem(TIMER_KEY, String(next));
+      els.timerSeconds.value = String(next);
+      if (flipped && next > 0) {
+        startReadingTimer();
+      } else {
+        stopReadingTimer();
+      }
+    }
+
+    function startReadingTimer() {
+      clearInterval(timerId);
+      if (!timerSeconds || timerSeconds <= 0 || !activeGroup().cards.length) {
+        stopReadingTimer();
+        return;
+      }
+      timerStartedAt = Date.now();
+      timerRemaining = timerSeconds;
+      els.readingTimer.classList.add("active");
+      updateTimerDisplay();
+      timerId = setInterval(() => {
+        const elapsed = (Date.now() - timerStartedAt) / 1000;
+        timerRemaining = Math.max(0, timerSeconds - elapsed);
+        updateTimerDisplay();
+        if (timerRemaining <= 0) {
+          clearInterval(timerId);
+          timerId = 0;
+        }
+      }, 200);
+    }
+
+    function stopReadingTimer() {
+      clearInterval(timerId);
+      timerId = 0;
+      timerRemaining = timerSeconds;
+      updateTimerDisplay();
+      els.readingTimer.classList.toggle("active", flipped && timerSeconds > 0);
+    }
+
+    function updateTimerDisplay() {
+      if (!els.readingTimer) return;
+      const active = flipped && timerSeconds > 0;
+      els.readingTimer.classList.toggle("active", active);
+      if (!active) {
+        els.timerText.textContent = timerSeconds > 0 ? `阅读 ${timerSeconds}s` : "秒表已关闭";
+        els.timerFill.style.width = "100%";
+        return;
+      }
+      const pct = timerSeconds ? Math.max(0, Math.min(100, (timerRemaining / timerSeconds) * 100)) : 0;
+      els.timerText.textContent = timerRemaining > 0 ? `阅读 ${Math.ceil(timerRemaining)}s` : "稳了 ✨";
+      els.timerFill.style.width = `${pct}%`;
     }
 
     function addGroup() {
@@ -1742,6 +1893,8 @@ A: 反面"></textarea>
     els.addCard.addEventListener("click", addCard);
     els.importCards.addEventListener("click", importCards);
     els.promptMode.addEventListener("change", syncPromptTemplate);
+    els.timerSeconds.addEventListener("change", () => setTimerSeconds(els.timerSeconds.value));
+    els.timerSeconds.addEventListener("input", () => setTimerSeconds(els.timerSeconds.value));
     els.copyPrompt.addEventListener("click", copyPrompt);
     els.exportDeck.addEventListener("click", exportDeck);
     els.clearDeck.addEventListener("click", clearDeck);
@@ -1828,6 +1981,7 @@ A: 反面"></textarea>
 
     render();
     syncPromptTemplate();
+    setTimerSeconds(timerSeconds);
     openCover();
   </script>
 </body>
