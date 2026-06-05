@@ -1,0 +1,1434 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>记忆卡片</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #101828;
+      --muted: rgba(16, 24, 40, 0.58);
+      --line: rgba(255, 255, 255, 0.56);
+      --glass: rgba(255, 255, 255, 0.48);
+      --glass-strong: rgba(255, 255, 255, 0.74);
+      --glass-soft: rgba(255, 255, 255, 0.3);
+      --accent: #08746f;
+      --accent-strong: #055f5b;
+      --accent-soft: rgba(8, 116, 111, 0.14);
+      --blue: #2c66b8;
+      --rose: #b85562;
+      --gold: #c58720;
+      --shadow: 0 26px 90px rgba(35, 47, 72, 0.18);
+      --inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      --radius: 24px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 13% 18%, rgba(115, 214, 206, 0.52), transparent 28%),
+        radial-gradient(circle at 86% 12%, rgba(255, 205, 131, 0.46), transparent 24%),
+        radial-gradient(circle at 72% 86%, rgba(132, 169, 232, 0.5), transparent 34%),
+        linear-gradient(135deg, #effdfa 0%, #f8fbff 44%, #fff6eb 100%);
+      background-attachment: fixed;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08)),
+        radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.46), transparent 38%);
+      backdrop-filter: blur(2px);
+    }
+
+    button,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 304px 1fr;
+      gap: 18px;
+      min-height: 100svh;
+      padding: 18px;
+      position: relative;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: calc(100svh - 36px);
+      padding: max(22px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.3));
+      backdrop-filter: blur(34px) saturate(1.55);
+      box-shadow: var(--shadow), var(--inner-light);
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+      padding: 4px 8px 2px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      gap: 10px;
+    }
+
+    .input,
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--ink);
+      outline: 0;
+      box-shadow: var(--inner-light);
+      backdrop-filter: blur(20px) saturate(1.3);
+    }
+
+    .input {
+      height: 52px;
+      padding: 0 16px;
+    }
+
+    .input:focus,
+    textarea:focus {
+      border-color: rgba(15, 118, 110, 0.7);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+    }
+
+    .icon-btn,
+    .btn {
+      min-height: 44px;
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      box-shadow: 0 10px 28px rgba(35, 47, 72, 0.08), var(--inner-light);
+      backdrop-filter: blur(22px) saturate(1.35);
+      transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn {
+      width: 52px;
+      min-height: 52px;
+      font-size: 25px;
+      line-height: 1;
+    }
+
+    .btn {
+      min-height: 50px;
+      padding: 0 18px;
+      font-size: 14px;
+      font-weight: 760;
+    }
+
+    .btn.primary,
+    .icon-btn.primary {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.38);
+      background: linear-gradient(180deg, rgba(12, 137, 130, 0.94), rgba(5, 95, 91, 0.98));
+      box-shadow: 0 16px 34px rgba(8, 116, 111, 0.22), var(--inner-light);
+    }
+
+    .btn.warn {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.38);
+      background: linear-gradient(180deg, rgba(190, 96, 109, 0.92), rgba(160, 70, 82, 0.98));
+    }
+
+    .btn:hover,
+    .icon-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 16px 38px rgba(35, 47, 72, 0.12), var(--inner-light);
+    }
+
+    .groups {
+      display: grid;
+      gap: 10px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .group {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 62px;
+      padding: 12px 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.54);
+      box-shadow: var(--inner-light);
+      text-align: left;
+    }
+
+    .group.active {
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.78), rgba(220, 249, 245, 0.58));
+      border-color: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 14px 34px rgba(8, 116, 111, 0.12), var(--inner-light);
+    }
+
+    .group-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .group-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .side-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    main {
+      min-width: 0;
+      padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding: 8px 4px;
+    }
+
+    .deck-title {
+      min-width: 0;
+    }
+
+    .deck-title h2 {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 27px;
+      letter-spacing: 0;
+    }
+
+    .deck-title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 352px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .study {
+      display: grid;
+      gap: 16px;
+    }
+
+    .card-wrap {
+      perspective: 1400px;
+      min-height: min(64svh, 650px);
+    }
+
+    .card {
+      position: relative;
+      width: 100%;
+      min-height: min(64svh, 650px);
+      transform-style: preserve-3d;
+      transition: transform 0.42s cubic-bezier(0.2, 0.78, 0.24, 1);
+    }
+
+    .card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(24px, 5vw, 54px);
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      border-radius: 34px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.42)),
+        radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.78), transparent 28%),
+        radial-gradient(circle at 84% 88%, rgba(8, 116, 111, 0.13), transparent 32%);
+      box-shadow: var(--shadow), var(--inner-light), inset 0 -18px 42px rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(34px) saturate(1.45);
+      backface-visibility: hidden;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .face::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 33px;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), transparent 35%, rgba(255, 255, 255, 0.24));
+      mask: linear-gradient(#000, transparent 42%);
+    }
+
+    .face.back {
+      transform: rotateY(180deg);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(226, 250, 246, 0.52)),
+        radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.8), transparent 28%),
+        radial-gradient(circle at 82% 84%, rgba(44, 102, 184, 0.14), transparent 32%);
+    }
+
+    .card-text {
+      width: 100%;
+      max-width: 960px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      text-align: center;
+      font-size: clamp(26px, 3.6vw, 52px);
+      line-height: 1.35;
+      font-weight: 760;
+      letter-spacing: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .answer .card-text {
+      font-size: clamp(22px, 2.8vw, 42px);
+      font-weight: 750;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: min(64svh, 650px);
+      padding: 32px;
+      border: 1px dashed rgba(255, 255, 255, 0.74);
+      border-radius: 34px;
+      background: rgba(255, 255, 255, 0.38);
+      backdrop-filter: blur(28px) saturate(1.4);
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 60px 1fr 60px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .flip-btn {
+      min-height: 60px;
+      font-size: 17px;
+    }
+
+    .progress {
+      display: grid;
+      gap: 8px;
+    }
+
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .meter {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.46);
+      overflow: hidden;
+      box-shadow: var(--inner-light);
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--blue), var(--gold));
+    }
+
+    .panel {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.32));
+      backdrop-filter: blur(34px) saturate(1.55);
+      box-shadow: var(--shadow), var(--inner-light);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.56);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.34);
+      box-shadow: var(--inner-light);
+    }
+
+    .tab {
+      min-height: 44px;
+      border-radius: 14px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .tab.active {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 10px 24px rgba(35, 47, 72, 0.08), var(--inner-light);
+    }
+
+    .pane {
+      display: none;
+      gap: 10px;
+    }
+
+    .pane.active {
+      display: grid;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      padding: 14px;
+      line-height: 1.55;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .card-list {
+      display: grid;
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .mini-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.42);
+      box-shadow: var(--inner-light);
+    }
+
+    .mini-card strong,
+    .mini-card span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mini-card strong {
+      font-size: 13px;
+    }
+
+    .mini-card span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mini-actions {
+      display: flex;
+      gap: 4px;
+      align-items: start;
+    }
+
+    .mini-actions button {
+      width: 32px;
+      min-height: 32px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.56);
+      border: 1px solid rgba(255, 255, 255, 0.62);
+      font-weight: 900;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 20;
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      pointer-events: none;
+      padding: 11px 14px;
+      max-width: calc(100vw - 32px);
+      border-radius: var(--radius);
+      background: rgba(24, 32, 43, 0.92);
+      color: #fff;
+      font-size: 14px;
+      box-shadow: 0 16px 40px rgba(24, 32, 43, 0.2);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .cover {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+      background:
+        linear-gradient(135deg, rgba(238, 251, 249, 0.72), rgba(255, 246, 235, 0.42)),
+        #f7fbfb;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.32s ease;
+    }
+
+    .cover.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .cover-shell {
+      position: relative;
+      width: min(100%, 980px);
+      min-height: min(86svh, 760px);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.68);
+      border-radius: 38px;
+      background: rgba(255, 255, 255, 0.45);
+      box-shadow: 0 34px 120px rgba(35, 47, 72, 0.24), var(--inner-light);
+      backdrop-filter: blur(36px) saturate(1.48);
+    }
+
+    .cover-art {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(247, 251, 251, 0.78) 68%, rgba(247, 251, 251, 0.95)),
+        url("liquid-metal-cover.png") center / cover no-repeat;
+      transform: scale(1.01);
+    }
+
+    .cover-content {
+      position: absolute;
+      inset: auto 0 0 0;
+      display: grid;
+      gap: 16px;
+      padding: clamp(26px, 5vw, 58px);
+    }
+
+    .cover-kicker {
+      width: fit-content;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.52);
+      color: rgba(16, 24, 40, 0.72);
+      font-size: 13px;
+      font-weight: 820;
+      box-shadow: var(--inner-light);
+      backdrop-filter: blur(18px) saturate(1.4);
+    }
+
+    .cover h2 {
+      margin: 0;
+      max-width: 760px;
+      color: #0b1723;
+      font-size: clamp(46px, 8vw, 92px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .cover p {
+      margin: 0;
+      max-width: 560px;
+      color: rgba(16, 24, 40, 0.68);
+      font-size: clamp(15px, 2vw, 19px);
+      line-height: 1.7;
+    }
+
+    .cover-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .cover-actions .btn {
+      min-height: 58px;
+      padding: 0 22px;
+      font-size: 15px;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding: 12px;
+      }
+
+      main {
+        order: 1;
+      }
+
+      .sidebar {
+        order: 2;
+        position: relative;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr);
+        align-items: start;
+        min-height: 0;
+        padding: max(14px, env(safe-area-inset-top)) 14px 14px;
+      }
+
+      .toolbar,
+      .side-actions {
+        grid-column: 1 / -1;
+      }
+
+      .groups {
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(178px, 1fr);
+        overflow-x: auto;
+      }
+
+      .stage {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .sidebar {
+        grid-template-columns: 1fr;
+        border-radius: 24px;
+      }
+
+      main {
+        padding: 4px;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+        margin-bottom: 10px;
+      }
+
+      .top-actions {
+        justify-content: stretch;
+      }
+
+      .top-actions .btn {
+        flex: 1;
+      }
+
+      .card-wrap,
+      .card,
+      .empty {
+        min-height: 56svh;
+      }
+
+      .card-text {
+        font-size: clamp(24px, 8vw, 38px);
+      }
+
+      .face,
+      .empty {
+        border-radius: 26px;
+        padding: 24px;
+      }
+
+      .face::before {
+        border-radius: 25px;
+      }
+
+      .panel {
+        border-radius: 24px;
+        padding: 12px;
+      }
+
+      .brand p,
+      .deck-title p,
+      .hint {
+        font-size: 12px;
+      }
+
+      .cover-shell {
+        min-height: calc(100svh - 36px);
+        border-radius: 30px;
+      }
+
+      .cover-content {
+        padding: 28px;
+      }
+
+      .cover-actions .btn {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="cover" id="cover" aria-label="液态金属封面">
+    <div class="cover-shell">
+      <div class="cover-art" aria-hidden="true"></div>
+      <div class="cover-content">
+        <div class="cover-kicker">Liquid Metal Memory Deck</div>
+        <h2>记忆卡片</h2>
+        <p>把资料交给 GPT 生成卡片，在 iPad 上用空格或触控翻面。简洁、专注、像一张可以流动的金属卡片。</p>
+        <div class="cover-actions">
+          <button class="btn primary" id="startStudy">开始背卡</button>
+          <button class="btn" id="skipCover">进入编辑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>记忆卡片</h1>
+        <p>空格翻面，左右切换。iPad 外接键盘和触控都能用。</p>
+      </div>
+
+      <div class="toolbar">
+        <input class="input" id="newGroupName" placeholder="新卡片组名称">
+        <button class="icon-btn primary" id="addGroup" title="新建卡片组" aria-label="新建卡片组">+</button>
+      </div>
+
+      <div class="groups" id="groups" aria-label="卡片组"></div>
+
+      <div class="side-actions">
+        <button class="btn" id="renameGroup">重命名</button>
+        <button class="btn warn" id="deleteGroup">删除组</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div class="deck-title">
+          <h2 id="deckTitle">卡片组</h2>
+          <p id="deckMeta">准备开始</p>
+        </div>
+        <div class="top-actions">
+          <button class="btn" id="showCover">封面</button>
+          <button class="btn" id="shuffleCards">随机</button>
+          <button class="btn" id="resetProgress">重置进度</button>
+          <button class="btn primary" id="focusStudy">专注学习</button>
+        </div>
+      </div>
+
+      <section class="stage">
+        <div class="study">
+          <div id="cardHost"></div>
+
+          <div class="controls">
+            <button class="icon-btn" id="prevCard" title="上一张" aria-label="上一张">‹</button>
+            <button class="btn primary flip-btn" id="flipCard">翻转</button>
+            <button class="icon-btn" id="nextCard" title="下一张" aria-label="下一张">›</button>
+          </div>
+
+          <div class="progress">
+            <div class="progress-row">
+              <span id="progressText">0 / 0</span>
+              <span id="sideText">正面</span>
+            </div>
+            <div class="meter" aria-hidden="true"><span id="meter"></span></div>
+          </div>
+        </div>
+
+        <aside class="panel" aria-label="编辑和导入">
+          <div class="tabs">
+            <button class="tab active" data-tab="add">添加</button>
+            <button class="tab" data-tab="import">批量</button>
+            <button class="tab" data-tab="manage">管理</button>
+          </div>
+
+          <div class="pane active" id="pane-add">
+            <label for="frontInput">正面</label>
+            <textarea id="frontInput" placeholder="例如：什么是间隔重复？"></textarea>
+            <label for="backInput">反面</label>
+            <textarea id="backInput" placeholder="例如：按逐渐拉长的时间间隔复习，以降低遗忘。"></textarea>
+            <button class="btn primary" id="addCard">添加卡片</button>
+          </div>
+
+          <div class="pane" id="pane-import">
+            <label for="bulkInput">粘贴 GPT 生成的卡片</label>
+            <textarea id="bulkInput" placeholder="每行一张：
+正面 | 反面
+正面<Tab>反面
+Q: 正面
+A: 反面"></textarea>
+            <div class="two">
+              <button class="btn primary" id="importCards">导入</button>
+              <button class="btn" id="copyPrompt">复制GPT提示词</button>
+            </div>
+            <p class="hint">也支持 JSON：[{&quot;front&quot;:&quot;问题&quot;,&quot;back&quot;:&quot;答案&quot;}]。导入会加入当前卡片组，不会覆盖旧卡片。</p>
+          </div>
+
+          <div class="pane" id="pane-manage">
+            <div class="two">
+              <button class="btn" id="exportDeck">导出当前组</button>
+              <button class="btn warn" id="clearDeck">清空当前组</button>
+            </div>
+            <div class="card-list" id="cardList"></div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const STORAGE_KEY = "ipad-memory-cards-v1";
+
+    const sampleState = {
+      activeGroupId: "g-default",
+      groups: [
+        {
+          id: "g-default",
+          name: "示例：学习方法",
+          cards: [
+            {
+              id: "c-1",
+              front: "什么是主动回忆？",
+              back: "先尝试从记忆里提取答案，再看材料校正。它比单纯重读更能暴露知识缺口。"
+            },
+            {
+              id: "c-2",
+              front: "把资料发给 GPT 生成卡片时，最重要的约束是什么？",
+              back: "要求每张卡只考一个知识点，并固定输出格式，例如：正面 | 反面。"
+            },
+            {
+              id: "c-3",
+              front: "空格键在这个页面里做什么？",
+              back: "当你没有在输入框里打字时，按空格会翻转当前卡片。"
+            }
+          ]
+        }
+      ]
+    };
+
+    let state = loadState();
+    let currentIndex = 0;
+    let flipped = false;
+
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      groups: $("groups"),
+      newGroupName: $("newGroupName"),
+      addGroup: $("addGroup"),
+      renameGroup: $("renameGroup"),
+      deleteGroup: $("deleteGroup"),
+      deckTitle: $("deckTitle"),
+      deckMeta: $("deckMeta"),
+      cardHost: $("cardHost"),
+      prevCard: $("prevCard"),
+      nextCard: $("nextCard"),
+      flipCard: $("flipCard"),
+      progressText: $("progressText"),
+      sideText: $("sideText"),
+      meter: $("meter"),
+      shuffleCards: $("shuffleCards"),
+      resetProgress: $("resetProgress"),
+      focusStudy: $("focusStudy"),
+      cover: $("cover"),
+      startStudy: $("startStudy"),
+      skipCover: $("skipCover"),
+      showCover: $("showCover"),
+      frontInput: $("frontInput"),
+      backInput: $("backInput"),
+      addCard: $("addCard"),
+      bulkInput: $("bulkInput"),
+      importCards: $("importCards"),
+      copyPrompt: $("copyPrompt"),
+      exportDeck: $("exportDeck"),
+      clearDeck: $("clearDeck"),
+      cardList: $("cardList"),
+      toast: $("toast")
+    };
+
+    function uid(prefix) {
+      return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return structuredClone(sampleState);
+        const parsed = JSON.parse(saved);
+        if (!parsed.groups || !parsed.groups.length) return structuredClone(sampleState);
+        return parsed;
+      } catch {
+        return structuredClone(sampleState);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function activeGroup() {
+      return state.groups.find((group) => group.id === state.activeGroupId) || state.groups[0];
+    }
+
+    function clampIndex() {
+      const group = activeGroup();
+      currentIndex = Math.min(Math.max(currentIndex, 0), Math.max(group.cards.length - 1, 0));
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => els.toast.classList.remove("show"), 1900);
+    }
+
+    function render() {
+      const group = activeGroup();
+      if (!group) return;
+      clampIndex();
+      renderGroups(group);
+      renderStudy(group);
+      renderCardList(group);
+      saveState();
+    }
+
+    function renderGroups(active) {
+      els.groups.innerHTML = "";
+      state.groups.forEach((group) => {
+        const button = document.createElement("button");
+        button.className = `group${group.id === active.id ? " active" : ""}`;
+        button.type = "button";
+        button.innerHTML = `
+          <span>
+            <span class="group-name">${escapeHtml(group.name)}</span>
+            <span class="group-count">${group.cards.length} 张卡片</span>
+          </span>
+          <span aria-hidden="true">›</span>
+        `;
+        button.addEventListener("click", () => {
+          state.activeGroupId = group.id;
+          currentIndex = 0;
+          flipped = false;
+          render();
+        });
+        els.groups.appendChild(button);
+      });
+    }
+
+    function renderStudy(group) {
+      const count = group.cards.length;
+      els.deckTitle.textContent = group.name;
+      els.deckMeta.textContent = count ? `当前第 ${currentIndex + 1} 张，共 ${count} 张` : "这个卡片组还没有卡片";
+      els.progressText.textContent = count ? `${currentIndex + 1} / ${count}` : "0 / 0";
+      els.sideText.textContent = flipped ? "反面" : "正面";
+      els.meter.style.width = count ? `${((currentIndex + 1) / count) * 100}%` : "0";
+      els.prevCard.disabled = count <= 1;
+      els.nextCard.disabled = count <= 1;
+      els.flipCard.disabled = count === 0;
+
+      if (!count) {
+        els.cardHost.innerHTML = `<div class="empty">先添加一张卡片，或把 GPT 生成的卡片批量粘贴进来。</div>`;
+        return;
+      }
+
+      const card = group.cards[currentIndex];
+      els.cardHost.innerHTML = `
+        <div class="card-wrap">
+          <div class="card${flipped ? " flipped" : ""}" id="studyCard" tabindex="0" role="button" aria-label="点击翻转卡片">
+            <article class="face front">
+              <div class="card-text">${escapeHtml(card.front)}</div>
+            </article>
+            <article class="face back answer">
+              <div class="card-text">${escapeHtml(card.back)}</div>
+            </article>
+          </div>
+        </div>
+      `;
+      $("studyCard").addEventListener("click", flip);
+    }
+
+    function renderCardList(group) {
+      els.cardList.innerHTML = "";
+      if (!group.cards.length) {
+        els.cardList.innerHTML = `<p class="hint">暂无卡片。</p>`;
+        return;
+      }
+      group.cards.forEach((card, index) => {
+        const item = document.createElement("div");
+        item.className = "mini-card";
+        item.innerHTML = `
+          <div>
+            <strong>${escapeHtml(card.front)}</strong>
+            <span>${escapeHtml(card.back)}</span>
+          </div>
+          <div class="mini-actions">
+            <button type="button" title="学习这张" aria-label="学习这张" data-jump="${index}">↗</button>
+            <button type="button" title="删除" aria-label="删除" data-delete="${card.id}">×</button>
+          </div>
+        `;
+        els.cardList.appendChild(item);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function flip() {
+      if (!activeGroup().cards.length) return;
+      flipped = !flipped;
+      render();
+    }
+
+    function move(step) {
+      const group = activeGroup();
+      if (!group.cards.length) return;
+      currentIndex = (currentIndex + step + group.cards.length) % group.cards.length;
+      flipped = false;
+      render();
+    }
+
+    function addGroup() {
+      const name = els.newGroupName.value.trim() || `卡片组 ${state.groups.length + 1}`;
+      const group = { id: uid("g"), name, cards: [] };
+      state.groups.push(group);
+      state.activeGroupId = group.id;
+      els.newGroupName.value = "";
+      currentIndex = 0;
+      flipped = false;
+      render();
+      showToast("已新建卡片组");
+    }
+
+    function renameGroup() {
+      const group = activeGroup();
+      const name = prompt("新的卡片组名称", group.name);
+      if (!name || !name.trim()) return;
+      group.name = name.trim();
+      render();
+      showToast("已重命名");
+    }
+
+    function deleteGroup() {
+      if (state.groups.length === 1) {
+        showToast("至少保留一个卡片组");
+        return;
+      }
+      const group = activeGroup();
+      if (!confirm(`删除「${group.name}」及其中 ${group.cards.length} 张卡片？`)) return;
+      state.groups = state.groups.filter((item) => item.id !== group.id);
+      state.activeGroupId = state.groups[0].id;
+      currentIndex = 0;
+      flipped = false;
+      render();
+      showToast("已删除卡片组");
+    }
+
+    function addCard() {
+      const front = els.frontInput.value.trim();
+      const back = els.backInput.value.trim();
+      if (!front || !back) {
+        showToast("正面和反面都要填写");
+        return;
+      }
+      activeGroup().cards.push({ id: uid("c"), front, back });
+      els.frontInput.value = "";
+      els.backInput.value = "";
+      currentIndex = activeGroup().cards.length - 1;
+      flipped = false;
+      render();
+      showToast("已添加卡片");
+    }
+
+    function parseBulk(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return [];
+
+      try {
+        const data = JSON.parse(trimmed);
+        if (Array.isArray(data)) {
+          return data
+            .map((item) => ({
+              front: String(item.front ?? item.q ?? item.question ?? "").trim(),
+              back: String(item.back ?? item.a ?? item.answer ?? "").trim()
+            }))
+            .filter((item) => item.front && item.back);
+        }
+      } catch {
+        // Continue with text formats.
+      }
+
+      const cards = parseOrderedLines(trimmed);
+
+      const blocks = trimmed.split(/\n\s*\n/g);
+      blocks.forEach((block) => {
+        const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        const joined = lines.join("\n");
+        const qLine = lines.find((line) => /^(Q|问题|正面)\s*[:：]/i.test(line));
+        const aLine = lines.find((line) => /^(A|答案|反面)\s*[:：]/i.test(line));
+        if (qLine && aLine) {
+          cards.push({
+            front: qLine.replace(/^(Q|问题|正面)\s*[:：]\s*/i, "").trim(),
+            back: aLine.replace(/^(A|答案|反面)\s*[:：]\s*/i, "").trim()
+          });
+          return;
+        }
+
+        if (lines.length === 2 && !splitPair(lines[0]) && !splitPair(lines[1])) {
+          cards.push({ front: lines[0], back: lines[1] });
+          return;
+        }
+
+        const candidateLines = lines.length > 1 ? lines : [joined];
+        candidateLines.forEach((line) => {
+          const pair = splitPair(line);
+          if (pair) cards.push(pair);
+        });
+      });
+      return uniqueCards(cards.filter((card) => card.front && card.back));
+    }
+
+    function parseOrderedLines(text) {
+      const cards = [];
+      let pendingFront = "";
+      text.split(/\r?\n/).forEach((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) return;
+        if (/^(Q|问题|正面)\s*[:：]/i.test(line)) {
+          pendingFront = line.replace(/^(Q|问题|正面)\s*[:：]\s*/i, "").trim();
+          return;
+        }
+        if (/^(A|答案|反面)\s*[:：]/i.test(line)) {
+          const back = line.replace(/^(A|答案|反面)\s*[:：]\s*/i, "").trim();
+          if (pendingFront && back) cards.push({ front: pendingFront, back });
+          pendingFront = "";
+          return;
+        }
+        const pair = splitPair(line);
+        if (pair) cards.push(pair);
+      });
+      return cards;
+    }
+
+    function uniqueCards(cards) {
+      const seen = new Set();
+      return cards.filter((card) => {
+        const key = `${card.front}\u0000${card.back}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function splitPair(line) {
+      const separators = ["\t", " | ", "|", " :: ", "::", " => ", "=>", " - ", " -- "];
+      for (const separator of separators) {
+        const index = line.indexOf(separator);
+        if (index > 0) {
+          return {
+            front: line.slice(0, index).trim(),
+            back: line.slice(index + separator.length).trim()
+          };
+        }
+      }
+      return null;
+    }
+
+    function importCards() {
+      const cards = parseBulk(els.bulkInput.value);
+      if (!cards.length) {
+        showToast("没有识别到卡片，请检查格式");
+        return;
+      }
+      const group = activeGroup();
+      group.cards.push(...cards.map((card) => ({ id: uid("c"), ...card })));
+      els.bulkInput.value = "";
+      currentIndex = Math.max(group.cards.length - cards.length, 0);
+      flipped = false;
+      render();
+      showToast(`已导入 ${cards.length} 张卡片`);
+    }
+
+    async function copyPrompt() {
+      const promptText = `请把我接下来提供的资料整理成记忆卡片。
+要求：
+1. 每张卡片只考一个知识点。
+2. 正面写问题或提示，反面写准确、简洁、可背诵的答案。
+3. 不要输出解释，不要编号。
+4. 严格使用以下格式，每行一张：
+正面 | 反面
+
+资料如下：`;
+      await copyText(promptText, "GPT 提示词已复制");
+    }
+
+    async function exportDeck() {
+      const group = activeGroup();
+      const text = group.cards.map((card) => `${card.front} | ${card.back}`).join("\n");
+      await copyText(text, "当前组已复制到剪贴板");
+    }
+
+    async function copyText(text, successMessage) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(successMessage);
+      } catch {
+        const helper = document.createElement("textarea");
+        helper.value = text;
+        helper.setAttribute("readonly", "");
+        helper.style.position = "fixed";
+        helper.style.left = "-9999px";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+        showToast(successMessage);
+      }
+    }
+
+    function clearDeck() {
+      const group = activeGroup();
+      if (!group.cards.length) return;
+      if (!confirm(`清空「${group.name}」里的 ${group.cards.length} 张卡片？`)) return;
+      group.cards = [];
+      currentIndex = 0;
+      flipped = false;
+      render();
+      showToast("已清空当前组");
+    }
+
+    function shuffleCards() {
+      const cards = activeGroup().cards;
+      for (let i = cards.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      currentIndex = 0;
+      flipped = false;
+      render();
+      showToast("已随机排序");
+    }
+
+    function resetProgress() {
+      currentIndex = 0;
+      flipped = false;
+      render();
+      showToast("已回到第一张");
+    }
+
+    function focusStudy() {
+      document.querySelector(".study").scrollIntoView({ behavior: "smooth", block: "center" });
+      const studyCard = $("studyCard");
+      if (studyCard) studyCard.focus({ preventScroll: true });
+    }
+
+    function openCover() {
+      els.cover.classList.add("show");
+      els.startStudy.focus({ preventScroll: true });
+    }
+
+    function closeCover(shouldFocusStudy = true) {
+      els.cover.classList.remove("show");
+      localStorage.setItem(`${STORAGE_KEY}-cover-seen`, "1");
+      if (shouldFocusStudy) {
+        setTimeout(focusStudy, 120);
+      }
+    }
+
+    function isTypingTarget(target) {
+      return target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+    }
+
+    els.addGroup.addEventListener("click", addGroup);
+    els.newGroupName.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") addGroup();
+    });
+    els.renameGroup.addEventListener("click", renameGroup);
+    els.deleteGroup.addEventListener("click", deleteGroup);
+    els.prevCard.addEventListener("click", () => move(-1));
+    els.nextCard.addEventListener("click", () => move(1));
+    els.flipCard.addEventListener("click", flip);
+    els.shuffleCards.addEventListener("click", shuffleCards);
+    els.resetProgress.addEventListener("click", resetProgress);
+    els.focusStudy.addEventListener("click", focusStudy);
+    els.showCover.addEventListener("click", openCover);
+    els.startStudy.addEventListener("click", () => closeCover(true));
+    els.skipCover.addEventListener("click", () => closeCover(false));
+    els.addCard.addEventListener("click", addCard);
+    els.importCards.addEventListener("click", importCards);
+    els.copyPrompt.addEventListener("click", copyPrompt);
+    els.exportDeck.addEventListener("click", exportDeck);
+    els.clearDeck.addEventListener("click", clearDeck);
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+        document.querySelectorAll(".pane").forEach((item) => item.classList.remove("active"));
+        tab.classList.add("active");
+        $(`pane-${tab.dataset.tab}`).classList.add("active");
+      });
+    });
+
+    els.cardList.addEventListener("click", (event) => {
+      const jump = event.target.closest("[data-jump]");
+      const del = event.target.closest("[data-delete]");
+      if (jump) {
+        currentIndex = Number(jump.dataset.jump);
+        flipped = false;
+        render();
+        focusStudy();
+      }
+      if (del) {
+        const group = activeGroup();
+        group.cards = group.cards.filter((card) => card.id !== del.dataset.delete);
+        clampIndex();
+        flipped = false;
+        render();
+        showToast("已删除卡片");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (isTypingTarget(event.target)) return;
+      if (els.cover.classList.contains("show")) {
+        if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          closeCover(true);
+        }
+        return;
+      }
+      if (event.key === " ") {
+        event.preventDefault();
+        flip();
+      } else if (event.key === "ArrowRight") {
+        move(1);
+      } else if (event.key === "ArrowLeft") {
+        move(-1);
+      } else if (event.key.toLowerCase() === "r") {
+        resetProgress();
+      }
+    });
+
+    render();
+    if (!localStorage.getItem(`${STORAGE_KEY}-cover-seen`)) {
+      openCover();
+    }
+  </script>
+</body>
+</html>
