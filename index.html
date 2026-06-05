@@ -137,6 +137,7 @@
     }
 
     .input,
+    select,
     textarea {
       width: 100%;
       border: 1px solid rgba(255, 255, 255, 0.64);
@@ -151,6 +152,11 @@
     .input {
       height: 52px;
       padding: 0 16px;
+    }
+
+    select {
+      min-height: 48px;
+      padding: 0 14px;
     }
 
     .input:focus,
@@ -499,31 +505,6 @@
       pointer-events: auto;
     }
 
-    .edge-hint {
-      position: fixed;
-      top: 50%;
-      z-index: 22;
-      width: 42px;
-      min-height: 82px;
-      transform: translateY(-50%);
-      border-radius: 999px;
-      color: rgba(16, 24, 40, 0.7);
-      background: rgba(255, 255, 255, 0.48);
-      border: 1px solid rgba(255, 255, 255, 0.58);
-      box-shadow: 0 12px 30px rgba(35, 47, 72, 0.12), var(--inner-light);
-      backdrop-filter: blur(20px) saturate(1.35);
-      font-size: 20px;
-      font-weight: 900;
-    }
-
-    .edge-hint.left {
-      left: 8px;
-    }
-
-    .edge-hint.right {
-      right: 8px;
-    }
-
     .tabs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -571,6 +552,11 @@
       resize: vertical;
       padding: 14px;
       line-height: 1.55;
+    }
+
+    .prompt-editor {
+      min-height: 230px;
+      font-size: 13px;
     }
 
     .hint {
@@ -884,8 +870,6 @@
   </section>
 
   <div class="drawer-scrim" id="drawerScrim"></div>
-  <button class="edge-hint left" id="leftEdge" aria-label="打开卡片组">组</button>
-  <button class="edge-hint right" id="rightEdge" aria-label="打开编辑导入">写</button>
 
   <div class="app">
     <aside class="sidebar">
@@ -916,7 +900,6 @@
         <div class="top-actions">
           <button class="btn" id="openGroups">卡片组</button>
           <button class="btn" id="openEditor">导入/编辑</button>
-          <button class="btn" id="showCover">封面</button>
           <button class="btn" id="shuffleCards">随机</button>
           <button class="btn" id="resetProgress">重置进度</button>
           <button class="btn primary" id="focusStudy">专注学习</button>
@@ -959,6 +942,14 @@
           </div>
 
           <div class="pane" id="pane-import">
+            <label for="promptMode">提示词模板</label>
+            <select id="promptMode">
+              <option value="deep">高级理解：思维导图 + 形象记忆</option>
+              <option value="standard">标准卡片：清晰问答</option>
+              <option value="exam">考试速记：高频考点</option>
+            </select>
+            <label for="promptEditor">可编辑提示词</label>
+            <textarea class="prompt-editor" id="promptEditor"></textarea>
             <label for="bulkInput">粘贴 GPT 生成的卡片</label>
             <textarea id="bulkInput" placeholder="每行一张：
 正面 | 反面
@@ -1033,6 +1024,77 @@ A: 反面"></textarea>
       "保持节奏，答案会越来越熟。🎯"
     ];
 
+    const promptTemplates = {
+      deep: `请把我接下来提供的资料整理成**高级记忆卡片**。
+
+**核心目标：**
+把资料变成适合长期记忆的卡片，不只是问答，还要帮助我形成**结构、画面、联系和提取线索**。
+
+**输出格式：**
+每行一张卡片，严格使用：
+正面 | 反面
+
+**正面要求：**
+1. 每张卡只考**一个核心知识点**。
+2. 问题要具体，能触发主动回忆。
+3. 如果概念容易混淆，正面要点出比较对象。
+
+**反面要求：**
+1. 先给出**一句话答案**。
+2. 再给出一个很小的**文字思维导图**，例如：
+核心概念
+├─ 原因：...
+├─ 机制：...
+└─ 例子：...
+3. 加一个**形象记忆**或类比，让答案更容易想起来。
+4. 加一个**知识链接**：说明它和前后概念、原因结果、应用场景的关系。
+5. 保持简洁，不要写成长段文章。
+
+**质量要求：**
+- **不要编号**
+- **不要解释你的处理过程**
+- **不要输出表格**
+- 每张卡片的反面可以换行，但一张卡片仍然必须用「正面 | 反面」开头
+
+**资料如下：**`,
+
+      standard: `请把我接下来提供的资料整理成**记忆卡片**。
+
+**要求：**
+1. **每张卡片只考一个知识点**。
+2. **正面**写问题或提示，**反面**写准确、简洁、可背诵的答案。
+3. **不要输出解释**，**不要编号**。
+4. 严格使用以下格式，**每行一张**：
+**正面 | 反面**
+
+**资料如下：**`,
+
+      exam: `请把我接下来提供的资料整理成**考试速记卡片**。
+
+**目标：**
+优先提取最可能被考到、最容易混淆、最需要快速回忆的内容。
+
+**输出格式：**
+每行一张卡片：
+正面 | 反面
+
+**正面要求：**
+- 使用考题式问题
+- 突出**定义、区别、原因、步骤、结论、易错点**
+
+**反面要求：**
+- 先写**最短可背答案**
+- 再写**易错提醒**
+- 必要时写一个**口诀/形象记忆**
+
+**限制：**
+- 不要编号
+- 不要输出额外说明
+- 每张卡只考一个点
+
+**资料如下：**`
+    };
+
     const $ = (id) => document.getElementById(id);
     const els = {
       groups: $("groups"),
@@ -1051,8 +1113,6 @@ A: 反面"></textarea>
       motivation: $("motivation"),
       meter: $("meter"),
       drawerScrim: $("drawerScrim"),
-      leftEdge: $("leftEdge"),
-      rightEdge: $("rightEdge"),
       openGroups: $("openGroups"),
       openEditor: $("openEditor"),
       shuffleCards: $("shuffleCards"),
@@ -1061,11 +1121,12 @@ A: 反面"></textarea>
       cover: $("cover"),
       startStudy: $("startStudy"),
       skipCover: $("skipCover"),
-      showCover: $("showCover"),
       frontInput: $("frontInput"),
       backInput: $("backInput"),
       addCard: $("addCard"),
       bulkInput: $("bulkInput"),
+      promptMode: $("promptMode"),
+      promptEditor: $("promptEditor"),
       importCards: $("importCards"),
       copyPrompt: $("copyPrompt"),
       exportDeck: $("exportDeck"),
@@ -1405,16 +1466,7 @@ A: 反面"></textarea>
     }
 
     async function copyPrompt() {
-      const promptText = `请把我接下来提供的资料整理成**记忆卡片**。
-
-**要求：**
-1. **每张卡片只考一个知识点**。
-2. **正面**写问题或提示，**反面**写准确、简洁、可背诵的答案。
-3. **不要输出解释**，**不要编号**。
-4. 严格使用以下格式，**每行一张**：
-**正面 | 反面**
-
-**资料如下：**`;
+      const promptText = els.promptEditor.value.trim() || promptTemplates[els.promptMode.value] || promptTemplates.deep;
       await copyText(promptText, "GPT 提示词已复制");
     }
 
@@ -1485,10 +1537,13 @@ A: 反面"></textarea>
 
     function closeCover(shouldFocusStudy = true) {
       els.cover.classList.remove("show");
-      localStorage.setItem(`${STORAGE_KEY}-cover-seen`, "1");
       if (shouldFocusStudy) {
         setTimeout(focusStudy, 120);
       }
+    }
+
+    function syncPromptTemplate() {
+      els.promptEditor.value = promptTemplates[els.promptMode.value] || promptTemplates.deep;
     }
 
     function isTypingTarget(target) {
@@ -1506,24 +1561,22 @@ A: 反面"></textarea>
     els.flipCard.addEventListener("click", smartAdvance);
     els.openGroups.addEventListener("click", () => openDrawer("left"));
     els.openEditor.addEventListener("click", () => openDrawer("right"));
-    els.leftEdge.addEventListener("click", () => openDrawer("left"));
-    els.rightEdge.addEventListener("click", () => openDrawer("right"));
     els.drawerScrim.addEventListener("click", closeDrawers);
     els.shuffleCards.addEventListener("click", shuffleCards);
     els.resetProgress.addEventListener("click", resetProgress);
     els.focusStudy.addEventListener("click", focusStudy);
-    els.showCover.addEventListener("click", openCover);
     els.startStudy.addEventListener("click", () => closeCover(true));
     els.skipCover.addEventListener("click", () => closeCover(false));
     els.addCard.addEventListener("click", addCard);
     els.importCards.addEventListener("click", importCards);
+    els.promptMode.addEventListener("change", syncPromptTemplate);
     els.copyPrompt.addEventListener("click", copyPrompt);
     els.exportDeck.addEventListener("click", exportDeck);
     els.clearDeck.addEventListener("click", clearDeck);
 
     document.addEventListener("click", (event) => {
       if (!document.body.classList.contains("drawer-left") && !document.body.classList.contains("drawer-right")) return;
-      if (event.target.closest(".sidebar, .panel, #openGroups, #openEditor, #leftEdge, #rightEdge")) return;
+      if (event.target.closest(".sidebar, .panel, #openGroups, #openEditor")) return;
       closeDrawers();
     });
 
@@ -1602,9 +1655,8 @@ A: 反面"></textarea>
     }, { passive: true });
 
     render();
-    if (!localStorage.getItem(`${STORAGE_KEY}-cover-seen`)) {
-      openCover();
-    }
+    syncPromptTemplate();
+    openCover();
   </script>
 </body>
 </html>
