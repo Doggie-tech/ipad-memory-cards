@@ -960,7 +960,7 @@ A: 反面"></textarea>
               <button class="btn primary" id="importCards">导入</button>
               <button class="btn" id="copyPrompt">复制GPT提示词</button>
             </div>
-            <p class="hint">也支持 JSON：[{&quot;front&quot;:&quot;问题&quot;,&quot;back&quot;:&quot;答案&quot;}]。导入会加入当前卡片组，不会覆盖旧卡片。</p>
+            <p class="hint">支持反面多行：第一行写“问题 | 答案开头”，后续行会保留在同一张卡；每张卡之间空一行。也支持 JSON。</p>
           </div>
 
           <div class="pane" id="pane-manage">
@@ -1025,36 +1025,45 @@ A: 反面"></textarea>
     ];
 
     const promptTemplates = {
-      deep: `请把我接下来提供的资料整理成**高级记忆卡片**。
+      deep: `请把资料整理成**可导入卡片程序的高级记忆卡片**。
 
-**核心目标：**
-把资料变成适合长期记忆的卡片，不只是问答，还要帮助我形成**结构、画面、联系和提取线索**。
+**严格输出格式：**
+具体问题 | 反面内容
 
-**输出格式：**
-每行一张卡片，严格使用：
-正面 | 反面
+**注意：**
+- 每张卡片第一行必须包含一个竖线：具体问题 | 一句话答案...
+- 「正面」指具体问题，不要真的输出「正面」两个字。
+- 「反面」指答案内容，不要真的输出「反面」两个字。
+- 反面允许换行。
+- 每张卡片之间空一行。
+- 不要表格，不要编号，不要解释。
 
-**正面要求：**
-1. 每张卡只考**一个核心知识点**。
-2. 问题要具体，能触发主动回忆。
-3. 如果概念容易混淆，正面要点出比较对象。
+**反面必须包含四块：**
+一句话答案：
+思维导图：
+形象记忆：
+知识链接：
 
-**反面要求：**
-1. 先给出**一句话答案**。
-2. 再给出一个很小的**文字思维导图**，例如：
-核心概念
-├─ 原因：...
-├─ 机制：...
-└─ 例子：...
-3. 加一个**形象记忆**或类比，让答案更容易想起来。
-4. 加一个**知识链接**：说明它和前后概念、原因结果、应用场景的关系。
-5. 保持简洁，不要写成长段文章。
+**规则：**
+1. 每张卡只考一个知识点。
+2. 正面要具体，不能太大。
+3. 思维导图必须是树状，不准压缩成一行。
+4. 每张卡的思维导图只画当前知识点的小图，不画整章大图。
+5. 思维导图最多4个一级分支，最多2层。
+6. 形象记忆必须是具体画面，要有「人、动作、场景」。
+7. 知识链接只写一句，说明它和前后概念或应用场景的关系。
+8. 宁可多拆卡，也不要一张卡太拥挤。
 
-**质量要求：**
-- **不要编号**
-- **不要解释你的处理过程**
-- **不要输出表格**
-- 每张卡片的反面可以换行，但一张卡片仍然必须用「正面 | 反面」开头
+**示例：**
+共情的核心是什么？ | 一句话答案：共情不是简单说「我懂你」，而是准确说出来访者的感受。
+思维导图：
+共情
+├─ 不是：空泛安慰
+├─ 核心：说准感受
+├─ 效果：被听见、不被评判
+└─ 目的：让来访者继续表达
+形象记忆：像咨询师拿着字幕牌，把来访者心里说不出的感受写出来。
+知识链接：共情是建立关系的核心技术，也是澄清和总结的基础。
 
 **资料如下：**`,
 
@@ -1374,6 +1383,9 @@ A: 反面"></textarea>
         // Continue with text formats.
       }
 
+      const blockCards = parseMultilineBlocks(trimmed);
+      if (blockCards.length) return uniqueCards(blockCards);
+
       const cards = parseOrderedLines(trimmed);
 
       const blocks = trimmed.split(/\n\s*\n/g);
@@ -1402,6 +1414,24 @@ A: 反面"></textarea>
         });
       });
       return uniqueCards(cards.filter((card) => card.front && card.back));
+    }
+
+    function parseMultilineBlocks(text) {
+      return text
+        .split(/\n\s*\n/g)
+        .map((block) => parseMultilineBlock(block))
+        .filter((card) => card && card.front && card.back);
+    }
+
+    function parseMultilineBlock(block) {
+      const lines = block.split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
+      if (!lines.length) return null;
+      const firstPair = splitPair(lines[0]);
+      if (!firstPair) return null;
+      return {
+        front: firstPair.front.trim(),
+        back: [firstPair.back, ...lines.slice(1)].join("\n").trim()
+      };
     }
 
     function parseOrderedLines(text) {
