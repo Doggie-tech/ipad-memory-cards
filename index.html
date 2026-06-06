@@ -326,6 +326,7 @@
     }
 
     .concept-map {
+      position: relative;
       display: grid;
       gap: 14px;
       min-height: 240px;
@@ -338,6 +339,39 @@
         radial-gradient(circle at 88% 92%, rgba(0, 168, 255, 0.15), transparent 32%);
       box-shadow: 0 18px 48px rgba(35, 47, 72, 0.1), var(--inner-light);
       backdrop-filter: blur(28px) saturate(1.35);
+    }
+
+    .map-resizer {
+      display: none;
+      position: absolute;
+      top: 26px;
+      right: -9px;
+      bottom: 26px;
+      width: 18px;
+      z-index: 8;
+      cursor: col-resize;
+      touch-action: none;
+    }
+
+    .map-resizer::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      width: 4px;
+      height: 76px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 77, 141, 0.44), rgba(124, 58, 237, 0.38), rgba(0, 168, 255, 0.42));
+      box-shadow: 0 10px 28px rgba(35, 47, 72, 0.12), var(--inner-light);
+      transform: translateY(-50%);
+      opacity: 0.48;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .map-resizer:hover::before,
+    .map-resizer:active::before {
+      opacity: 0.9;
+      transform: translateY(-50%) scaleX(1.25);
     }
 
     .map-head {
@@ -619,20 +653,7 @@
       cursor: grab;
       touch-action: none;
       padding: 7px 11px;
-      animation: nodeFloat 5.5s ease-in-out infinite;
-    }
-
-    .map-node.graph-node:nth-of-type(2n) {
-      animation-delay: -1.4s;
-    }
-
-    .map-node.graph-node:nth-of-type(3n) {
-      animation-delay: -2.6s;
-    }
-
-    @keyframes nodeFloat {
-      0%, 100% { margin-top: 0; }
-      50% { margin-top: -4px; }
+      transition: left 0.24s ease, top 0.24s ease, transform 0.18s ease, opacity 0.18s ease;
     }
 
     .map-node.graph-node b,
@@ -647,7 +668,6 @@
       padding: 10px 16px;
       font-size: 15px;
       z-index: 4;
-      animation: none;
     }
 
     .graph-dot {
@@ -771,6 +791,57 @@
     .link-chip.add {
       color: #fff;
       background: linear-gradient(135deg, rgba(255, 77, 141, 0.88), rgba(124, 58, 237, 0.88), rgba(0, 168, 255, 0.88));
+    }
+
+    .link-editor {
+      flex-basis: 100%;
+      display: grid;
+      gap: 8px;
+      min-width: min(320px, 80vw);
+      padding: 10px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 16px 34px rgba(35, 47, 72, 0.14), var(--inner-light);
+      backdrop-filter: blur(22px) saturate(1.25);
+    }
+
+    .link-editor input {
+      width: 100%;
+      min-height: 36px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(16, 24, 40, 0.1);
+      background: rgba(255, 255, 255, 0.68);
+      outline: none;
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .link-list,
+    .link-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .link-empty {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .link-list .link-chip {
+      padding-right: 7px;
+    }
+
+    .link-suggestions .link-chip {
+      background: rgba(247, 250, 255, 0.72);
+    }
+
+    .link-list button,
+    .link-suggestions button {
+      cursor: pointer;
     }
 
     .answer .card-text {
@@ -1321,13 +1392,25 @@
 
     @media (min-width: 1080px) {
       .stage {
-        grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+        grid-template-columns: minmax(260px, var(--map-width, 340px)) minmax(0, 1fr);
         align-items: start;
       }
 
       .concept-map {
+        grid-column: 1;
+        grid-row: 1;
         position: sticky;
         top: max(18px, env(safe-area-inset-top));
+        min-height: calc(100dvh - 52px);
+      }
+
+      .study {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .map-resizer {
+        display: block;
       }
     }
 
@@ -1499,6 +1582,7 @@
         </div>
 
         <aside class="concept-map" aria-label="全景脑图">
+          <div class="map-resizer" id="mapResizer" role="separator" aria-orientation="vertical" title="drag to resize map"></div>
           <div class="map-head">
             <strong>全景脑图</strong>
             <span id="mapMeta">0 张</span>
@@ -1568,6 +1652,7 @@ A: 反面"></textarea>
     const STORAGE_KEY = "ipad-memory-cards-v1";
     const TIMER_KEY = "ipad-memory-cards-timer-seconds";
     const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v4";
+    const MAP_WIDTH_KEY = "ipad-memory-cards-map-width-v1";
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1604,7 +1689,11 @@ A: 反面"></textarea>
     let touchStartX = 0;
     let touchStartY = 0;
     let mapPointerDrag = null;
+    let mapResizeDrag = null;
     let suppressMapClick = false;
+    let linkEditorOpen = false;
+    let linkQuery = "";
+    let mapWidth = clampNumber(Number(localStorage.getItem(MAP_WIDTH_KEY) || 340), 280, 520);
     let timerSeconds = Number(localStorage.getItem(TIMER_KEY) || 5);
     let timerRemaining = timerSeconds;
     let timerStartedAt = 0;
@@ -1728,6 +1817,7 @@ A: 反面"></textarea>
       mapRoot: $("mapRoot"),
       mapMeta: $("mapMeta"),
       conceptMap: $("conceptMap"),
+      mapResizer: $("mapResizer"),
       meter: $("meter"),
       drawerScrim: $("drawerScrim"),
       openGroups: $("openGroups"),
@@ -1857,20 +1947,68 @@ A: 反面"></textarea>
       `;
       $("studyCard").addEventListener("click", flip);
       const linkArea = $("cardLinks");
-      if (linkArea) linkArea.addEventListener("click", (event) => event.stopPropagation());
-      const linkEditor = $("editLinks");
-      if (linkEditor) {
-        linkEditor.addEventListener("click", (event) => {
-          event.stopPropagation();
-          editCardLinks();
-        });
+      if (linkArea) {
+        linkArea.addEventListener("click", handleCardLinksClick);
+        const linkSearch = $("linkSearch");
+        if (linkSearch) {
+          linkSearch.addEventListener("input", handleLinkSearchInput);
+          linkSearch.addEventListener("click", (event) => event.stopPropagation());
+        }
       }
     }
 
     function renderCardLinks(card) {
       const links = cardLinks(card);
       const chips = links.slice(0, 2).map((link) => `<span class="link-chip">[[${escapeHtml(link)}]]</span>`).join("");
-      return `<div class="card-links" id="cardLinks">${chips}<button class="link-chip add" id="editLinks" type="button">${links.length ? "编辑双链" : "+ 双链"}</button></div>`;
+      const editor = linkEditorOpen ? `
+        <div class="link-editor" id="linkEditorPanel">
+          <div class="link-list">
+            ${links.length ? links.map((link) => `<button class="link-chip" type="button" data-remove-link="${escapeHtml(link)}">[[${escapeHtml(link)}]] ×</button>`).join("") : `<span class="link-empty">暂无双链</span>`}
+          </div>
+          <input id="linkSearch" type="search" value="${escapeHtml(linkQuery)}" placeholder="搜索卡片，点击添加双链">
+          <div class="link-suggestions" id="linkSuggestions">
+            ${renderLinkSuggestions(linkQuery, links)}
+          </div>
+        </div>
+      ` : "";
+      return `<div class="card-links" id="cardLinks">${chips}<button class="link-chip add" id="editLinks" type="button">${links.length ? "编辑双链" : "+ 双链"}</button>${editor}</div>`;
+    }
+
+    function handleCardLinksClick(event) {
+      event.stopPropagation();
+      const toggle = event.target.closest("#editLinks");
+      const remove = event.target.closest("[data-remove-link]");
+      const add = event.target.closest("[data-add-link]");
+      const group = activeGroup();
+      const card = group.cards[currentIndex];
+      if (!card) return;
+      if (toggle) {
+        editCardLinks();
+        return;
+      }
+      if (remove) {
+        const value = remove.dataset.removeLink;
+        card.links = uniqueList(cardLinks(card).filter((link) => link !== value));
+        render();
+        showToast("已删除双链");
+        return;
+      }
+      if (add) {
+        const value = add.dataset.addLink;
+        card.links = uniqueList([...cardLinks(card), value]).slice(0, 8);
+        linkQuery = "";
+        render();
+        showToast("已添加双链");
+      }
+    }
+
+    function handleLinkSearchInput(event) {
+      const group = activeGroup();
+      const card = group.cards[currentIndex];
+      if (!card) return;
+      linkQuery = event.target.value;
+      const suggestions = $("linkSuggestions");
+      if (suggestions) suggestions.innerHTML = renderLinkSuggestions(linkQuery, cardLinks(card));
     }
 
     function renderConceptMap(group) {
@@ -1949,12 +2087,9 @@ A: 反面"></textarea>
         .slice(0, 5)
         .forEach((index) => indexes.add(index));
       scoreRelatedCards(cards, activeIndex)
+        .filter((item) => item.score >= 2)
         .slice(0, 5)
         .forEach((item) => indexes.add(item.index));
-      if (indexes.size < 6 && activeIndex > 0) indexes.add(activeIndex - 1);
-      if (indexes.size < 6 && activeIndex + 1 < cards.length) indexes.add(activeIndex + 1);
-      if (indexes.size < 6 && activeIndex > 1) indexes.add(activeIndex - 2);
-      if (indexes.size < 6 && activeIndex + 2 < cards.length) indexes.add(activeIndex + 2);
       return [...indexes].sort((a, b) => a - b);
     }
 
@@ -2030,7 +2165,40 @@ A: 反面"></textarea>
       return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
     }
 
+    function renderLinkSuggestions(query, existingLinks) {
+      const group = activeGroup();
+      const card = group.cards[currentIndex];
+      if (!card) return "";
+      const existing = new Set(existingLinks.map((item) => item.toLowerCase()));
+      const q = String(query || "").trim().toLowerCase();
+      const suggestions = group.cards
+        .map((item, index) => ({ card: item, index, label: compactPhrase(item, 7), text: cardConceptText(item).toLowerCase() }))
+        .filter((item) => item.index !== currentIndex)
+        .filter((item) => !existing.has(item.label.toLowerCase()))
+        .map((item) => ({ ...item, score: linkSuggestionScore(item, q) }))
+        .filter((item) => !q || item.score > 0)
+        .sort((a, b) => b.score - a.score || a.index - b.index)
+        .slice(0, 6);
+      if (!suggestions.length) return `<span class="link-empty">没有匹配卡片</span>`;
+      return suggestions
+        .map((item) => `<button class="link-chip" type="button" data-add-link="${escapeHtml(item.label)}">+ [[${escapeHtml(item.label)}]]</button>`)
+        .join("");
+    }
+
+    function linkSuggestionScore(item, query) {
+      if (!query) return Math.max(1, 20 - Math.abs(item.index - currentIndex));
+      let score = 0;
+      if (item.label.toLowerCase().includes(query)) score += 12;
+      if (String(item.card.front || "").toLowerCase().includes(query)) score += 8;
+      if (item.text.includes(query)) score += 4;
+      return score;
+    }
+
     function editCardLinks() {
+      linkEditorOpen = !linkEditorOpen;
+      if (!linkEditorOpen) linkQuery = "";
+      render();
+      return;
       const group = activeGroup();
       const card = group.cards[currentIndex];
       if (!card) return;
@@ -2085,6 +2253,11 @@ A: 反面"></textarea>
 
     function clampNumber(value, min, max) {
       return Math.min(max, Math.max(min, value));
+    }
+
+    function applyMapWidth() {
+      mapWidth = clampNumber(Number(mapWidth) || 340, 280, 520);
+      document.documentElement.style.setProperty("--map-width", `${mapWidth}px`);
     }
 
     function cardConceptText(card) {
@@ -2702,6 +2875,29 @@ A: 反面"></textarea>
       mapPointerDrag = null;
       els.conceptMap.querySelectorAll(".dragging").forEach((item) => item.classList.remove("dragging"));
     });
+    if (els.mapResizer) {
+      els.mapResizer.addEventListener("pointerdown", (event) => {
+        mapResizeDrag = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startWidth: mapWidth
+        };
+        event.preventDefault();
+        if (els.mapResizer.setPointerCapture) els.mapResizer.setPointerCapture(event.pointerId);
+      });
+    }
+    document.addEventListener("pointermove", (event) => {
+      if (!mapResizeDrag || mapResizeDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      mapWidth = clampNumber(mapResizeDrag.startWidth + event.clientX - mapResizeDrag.startX, 280, 520);
+      applyMapWidth();
+    });
+    document.addEventListener("pointerup", (event) => {
+      if (!mapResizeDrag || mapResizeDrag.pointerId !== event.pointerId) return;
+      mapResizeDrag = null;
+      localStorage.setItem(MAP_WIDTH_KEY, String(Math.round(mapWidth)));
+      showToast("已调整图谱宽度");
+    });
     els.openGroups.addEventListener("click", () => openDrawer("left"));
     els.openEditor.addEventListener("click", () => openDrawer("right"));
     els.drawerScrim.addEventListener("click", closeDrawers);
@@ -2801,6 +2997,7 @@ A: 反面"></textarea>
 
     render();
     syncPromptTemplate();
+    applyMapWidth();
     setTimerSeconds(timerSeconds);
     openCover();
   </script>
