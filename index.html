@@ -552,6 +552,61 @@
       background: rgba(22, 244, 208, 0.42);
     }
 
+    .map-canvas {
+      position: relative;
+      min-height: min(48dvh, 430px);
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.18)),
+        radial-gradient(circle at 50% 50%, rgba(22, 244, 208, 0.14), transparent 42%);
+      box-shadow: var(--inner-light);
+      touch-action: none;
+    }
+
+    .map-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .map-lines path {
+      fill: none;
+      stroke: rgba(124, 58, 237, 0.34);
+      stroke-width: 1.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .map-lines path.active {
+      stroke: rgba(255, 77, 141, 0.62);
+      stroke-width: 1.8;
+    }
+
+    .map-node.graph-node {
+      position: absolute;
+      z-index: 2;
+      transform: translate(-50%, -50%);
+      max-width: 96px;
+      min-height: 30px;
+      grid-template-columns: minmax(0, auto);
+      justify-content: center;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .map-node.graph-node b,
+    .map-node.graph-node .map-count {
+      display: none;
+    }
+
+    .map-node.graph-node.active {
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+
     .map-empty {
       margin: 0;
       color: var(--muted);
@@ -1427,12 +1482,6 @@ A: 反面"></textarea>
     const STORAGE_KEY = "ipad-memory-cards-v1";
     const TIMER_KEY = "ipad-memory-cards-timer-seconds";
     const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v1";
-    const MAP_LEVELS = [
-      { id: "pre", title: "前置", hint: "先懂" },
-      { id: "core", title: "核心", hint: "正在背" },
-      { id: "extend", title: "延伸", hint: "往后用" },
-      { id: "related", title: "相关", hint: "一起记" }
-    ];
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1514,6 +1563,8 @@ A: 反面"></textarea>
 6. 形象记忆必须是具体画面，要有「人、动作、场景」。
 7. 真实案例只写一个小场景，说明这个知识点怎么在真实学习、咨询、工作或生活里使用。
 8. 宁可多拆卡，也不要一张卡太拥挤。
+9. 思维导图第一行必须是2-6个字的「节点短语」，方便程序把这张卡显示成思维导图节点。
+10. 相邻卡片之间要有清晰递进关系：前一张铺垫，后一张延伸；同类概念尽量连续输出。
 
 **示例：**
 共情的核心是什么？ | 一句话答案：共情不是简单说「我懂你」，而是准确说出来访者的感受。
@@ -1721,69 +1772,93 @@ A: 反面"></textarea>
       const cards = group.cards || [];
       const current = cards[currentIndex];
       els.mapRoot.textContent = group.name || "卡片组";
-      els.mapMeta.textContent = current ? `${cards.length} 张 · 可拖动` : `${cards.length} 张`;
+      els.mapMeta.textContent = current ? `${cards.length} 张 · 连接图` : `${cards.length} 张`;
       if (!cards.length) {
-        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组卡片的层级思维导图。</p>`;
+        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组卡片的连接思维导图。</p>`;
         return;
       }
-      const levels = buildMapLevels(group, currentIndex);
-      els.conceptMap.innerHTML = MAP_LEVELS.map((level) => {
-        const items = levels[level.id] || [];
-        return `
-          <section class="map-level" data-map-level="${level.id}">
-            <div class="map-level-title">${level.title}<span>${level.hint}</span></div>
-            <div class="map-level-nodes">
-              ${items.length ? items.map(mapNodeItem).join("") : `<p class="map-empty">拖到这里</p>`}
-            </div>
-          </section>
-        `;
-      }).join("");
-      requestAnimationFrame(() => {
-        const activeNode = els.conceptMap.querySelector(".map-item.active");
-        if (activeNode) activeNode.scrollIntoView({ block: "nearest", inline: "nearest" });
-      });
-    }
-
-    function mapNodeItem(item) {
-      const active = item.active ? " active" : "";
-      const child = item.detail ? `<div class="map-children"><div class="map-child">${escapeHtml(item.detail)}</div></div>` : "";
-      return `
-        <div class="map-item${active}">
-          <button class="map-node${active}" type="button" draggable="true" data-map-jump="${item.index}" data-card-id="${escapeHtml(item.cardId)}" title="${escapeHtml(item.fullTitle || item.label)}">
-            <b>${item.index + 1}</b>
-            <span>${escapeHtml(item.label)}</span>
-            <em class="map-count">${escapeHtml(item.levelTitle)}</em>
-          </button>
-          ${child}
+      const graph = buildMapGraph(group, currentIndex);
+      els.conceptMap.innerHTML = `
+        <div class="map-canvas" id="mapCanvas">
+          <svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            ${graph.edges.map((edge) => mapEdgePath(edge, graph.nodes, current.id)).join("")}
+          </svg>
+          ${graph.nodes.map(mapGraphNode).join("")}
         </div>
       `;
     }
 
-    function buildMapLevels(group, activeIndex) {
-      const levels = Object.fromEntries(MAP_LEVELS.map((level) => [level.id, []]));
+    function buildMapGraph(group, activeIndex) {
       const layout = mapLayouts[group.id] || {};
-      const activeCard = group.cards[activeIndex];
-      group.cards.forEach((card, index) => {
-        const levelId = layout[card.id] || defaultMapLevel(index, activeIndex);
-        const level = MAP_LEVELS.find((item) => item.id === levelId) || MAP_LEVELS[3];
-        levels[level.id].push({
+      const cards = group.cards || [];
+      const nodes = cards.map((card, index) => {
+        const saved = layout[card.id];
+        const position = saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
+          ? saved
+          : defaultGraphPosition(index, cards.length, activeIndex);
+        return {
           index,
           cardId: card.id,
           active: index === activeIndex,
-          label: compactPhrase(card, 6),
-          detail: "",
-          levelTitle: level.title,
-          fullTitle: card.front
-        });
+          label: compactPhrase(card, 5),
+          fullTitle: card.front,
+          x: position.x,
+          y: position.y
+        };
       });
-      return levels;
+      return { nodes, edges: buildGraphEdges(cards, activeIndex) };
     }
 
-    function defaultMapLevel(index, activeIndex) {
-      if (index < activeIndex) return "pre";
-      if (index === activeIndex) return "core";
-      if (index <= activeIndex + 3) return "extend";
-      return "related";
+    function mapGraphNode(node) {
+      const active = node.active ? " active" : "";
+      return `
+        <button class="map-node graph-node${active}" type="button" data-map-jump="${node.index}" data-card-id="${escapeHtml(node.cardId)}" title="${escapeHtml(node.fullTitle)}" style="left:${node.x}%; top:${node.y}%;">
+          <span>${escapeHtml(node.label)}</span>
+        </button>
+      `;
+    }
+
+    function mapEdgePath(edge, nodes, activeCardId) {
+      const from = nodes.find((node) => node.cardId === edge.from);
+      const to = nodes.find((node) => node.cardId === edge.to);
+      if (!from || !to) return "";
+      const mid = (from.x + to.x) / 2;
+      const active = from.cardId === activeCardId || to.cardId === activeCardId ? " active" : "";
+      return `<path class="${active}" d="M ${from.x} ${from.y} H ${mid} V ${to.y} H ${to.x}" />`;
+    }
+
+    function defaultGraphPosition(index, count, activeIndex) {
+      if (index === activeIndex) return { x: 50, y: 50 };
+      const offset = index - activeIndex;
+      const ring = Math.min(3, Math.max(1, Math.ceil(Math.abs(offset) / 3)));
+      const angle = (-90 + offset * 42) * Math.PI / 180;
+      const radiusX = 16 + ring * 9;
+      const radiusY = 13 + ring * 8;
+      return {
+        x: clampNumber(50 + Math.cos(angle) * radiusX, 12, 88),
+        y: clampNumber(50 + Math.sin(angle) * radiusY, 12, 88)
+      };
+    }
+
+    function buildGraphEdges(cards, activeIndex) {
+      const edges = [];
+      for (let index = 0; index < cards.length - 1; index += 1) {
+        edges.push({ from: cards[index].id, to: cards[index + 1].id });
+      }
+      scoreRelatedCards(cards, activeIndex).slice(0, 4).forEach((item) => {
+        edges.push({ from: cards[activeIndex].id, to: cards[item.index].id });
+      });
+      return uniqueEdges(edges);
+    }
+
+    function uniqueEdges(edges) {
+      const seen = new Set();
+      return edges.filter((edge) => {
+        const key = [edge.from, edge.to].sort().join("|");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     }
 
     function compactPhrase(card, limit = 8) {
@@ -1808,16 +1883,35 @@ A: 反面"></textarea>
       localStorage.setItem(MAP_LAYOUT_KEY, JSON.stringify(mapLayouts));
     }
 
-    function setCardMapLevel(groupId, cardId, levelId) {
-      if (!MAP_LEVELS.some((level) => level.id === levelId)) return;
+    function setCardMapPosition(groupId, cardId, x, y) {
       mapLayouts[groupId] = mapLayouts[groupId] || {};
-      mapLayouts[groupId][cardId] = levelId;
+      mapLayouts[groupId][cardId] = {
+        x: clampNumber(x, 8, 92),
+        y: clampNumber(y, 8, 92)
+      };
       saveMapLayouts();
+    }
+
+    function clampNumber(value, min, max) {
+      return Math.min(max, Math.max(min, value));
     }
 
     function cardConceptText(card) {
       const sections = extractBackSections(card.back) || {};
       return [card.front, sections.summary, sections.map, sections.image, sections.case].filter(Boolean).join(" ");
+    }
+
+    function scoreRelatedCards(cards, currentIndex) {
+      const currentTokens = keywordTokens(cardConceptText(cards[currentIndex] || {}));
+      return cards
+        .map((card, index) => {
+          if (index === currentIndex || index === currentIndex - 1 || index === currentIndex + 1) return null;
+          const tokens = keywordTokens(cardConceptText(card));
+          const shared = [...currentTokens].filter((token) => tokens.has(token)).slice(0, 5);
+          return { index, score: shared.length, shared };
+        })
+        .filter((item) => item && item.score > 0)
+        .sort((a, b) => b.score - a.score || Math.abs(a.index - currentIndex) - Math.abs(b.index - currentIndex));
     }
 
     function keywordTokens(value) {
@@ -2343,44 +2437,18 @@ A: 反面"></textarea>
       render();
       focusStudy();
     });
-    els.conceptMap.addEventListener("dragstart", (event) => {
-      const node = event.target.closest(".map-node");
-      if (!node) return;
-      node.classList.add("dragging");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", node.dataset.cardId);
-    });
-    els.conceptMap.addEventListener("dragend", () => {
-      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
-    });
-    els.conceptMap.addEventListener("dragover", (event) => {
-      const level = event.target.closest("[data-map-level]");
-      if (!level) return;
-      event.preventDefault();
-      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
-      level.classList.add("drag-over");
-    });
-    els.conceptMap.addEventListener("drop", (event) => {
-      const level = event.target.closest("[data-map-level]");
-      if (!level) return;
-      event.preventDefault();
-      const cardId = event.dataTransfer.getData("text/plain");
-      if (!cardId) return;
-      setCardMapLevel(activeGroup().id, cardId, level.dataset.mapLevel);
-      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
-      render();
-      showToast("已调整脑图层级");
-    });
     els.conceptMap.addEventListener("pointerdown", (event) => {
-      const node = event.target.closest(".map-node");
+      const node = event.target.closest(".graph-node");
       if (!node || event.button > 0) return;
+      const canvas = event.target.closest(".map-canvas");
+      if (!canvas) return;
       mapPointerDrag = {
         cardId: node.dataset.cardId,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         node,
-        level: null,
+        canvas,
         active: false
       };
       if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
@@ -2393,30 +2461,30 @@ A: 反面"></textarea>
       event.preventDefault();
       mapPointerDrag.active = true;
       mapPointerDrag.node.classList.add("dragging");
-      const target = document.elementFromPoint(event.clientX, event.clientY);
-      const level = target && target.closest ? target.closest("[data-map-level]") : null;
-      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
-      if (level) {
-        level.classList.add("drag-over");
-        mapPointerDrag.level = level;
-      }
+      const rect = mapPointerDrag.canvas.getBoundingClientRect();
+      const x = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 8, 92);
+      const y = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 8, 92);
+      mapPointerDrag.node.style.left = `${x}%`;
+      mapPointerDrag.node.style.top = `${y}%`;
+      mapPointerDrag.x = x;
+      mapPointerDrag.y = y;
     });
     els.conceptMap.addEventListener("pointerup", (event) => {
       if (!mapPointerDrag || mapPointerDrag.pointerId !== event.pointerId) return;
       const drag = mapPointerDrag;
       mapPointerDrag = null;
-      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
+      els.conceptMap.querySelectorAll(".dragging").forEach((item) => item.classList.remove("dragging"));
       if (!drag.active) return;
       suppressMapClick = true;
-      if (drag.level) {
-        setCardMapLevel(activeGroup().id, drag.cardId, drag.level.dataset.mapLevel);
+      if (Number.isFinite(drag.x) && Number.isFinite(drag.y)) {
+        setCardMapPosition(activeGroup().id, drag.cardId, drag.x, drag.y);
         render();
-        showToast("已调整脑图层级");
+        showToast("已调整脑图位置");
       }
     });
     els.conceptMap.addEventListener("pointercancel", () => {
       mapPointerDrag = null;
-      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
+      els.conceptMap.querySelectorAll(".dragging").forEach((item) => item.classList.remove("dragging"));
     });
     els.openGroups.addEventListener("click", () => openDrawer("left"));
     els.openEditor.addEventListener("click", () => openDrawer("right"));
