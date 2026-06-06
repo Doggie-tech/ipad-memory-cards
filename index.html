@@ -564,6 +564,7 @@
         radial-gradient(circle at 78% 76%, rgba(0, 168, 255, 0.12), transparent 28%);
       box-shadow: var(--inner-light);
       touch-action: none;
+      cursor: grab;
     }
 
     .map-canvas::before {
@@ -740,6 +741,36 @@
       letter-spacing: 0;
       position: relative;
       z-index: 1;
+    }
+
+    .card-links {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      max-width: min(54%, 360px);
+    }
+
+    .link-chip {
+      min-height: 30px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.56);
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      color: rgba(16, 24, 40, 0.68);
+      box-shadow: var(--inner-light);
+      font-size: 12px;
+      font-weight: 900;
+      backdrop-filter: blur(18px) saturate(1.2);
+    }
+
+    .link-chip.add {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(255, 77, 141, 0.88), rgba(124, 58, 237, 0.88), rgba(0, 168, 255, 0.88));
     }
 
     .answer .card-text {
@@ -1489,6 +1520,7 @@
             <label for="backInput">反面</label>
             <textarea id="backInput" placeholder="例如：按逐渐拉长的时间间隔复习，以降低遗忘。"></textarea>
             <button class="btn primary" id="addCard">添加卡片</button>
+            <p class="hint">双链在卡片正面右上角设置；也可在反面写 [[概念名]] 自动识别。</p>
           </div>
 
           <div class="pane" id="pane-import">
@@ -1814,6 +1846,7 @@ A: 反面"></textarea>
         <div class="card-wrap">
           <div class="card${flipped ? " flipped" : ""}" id="studyCard" tabindex="0" role="button" aria-label="点击翻转卡片">
             <article class="face front">
+              ${renderCardLinks(card)}
               <div class="card-text">${escapeHtml(card.front)}</div>
             </article>
             <article class="face back answer">
@@ -1823,6 +1856,21 @@ A: 反面"></textarea>
         </div>
       `;
       $("studyCard").addEventListener("click", flip);
+      const linkArea = $("cardLinks");
+      if (linkArea) linkArea.addEventListener("click", (event) => event.stopPropagation());
+      const linkEditor = $("editLinks");
+      if (linkEditor) {
+        linkEditor.addEventListener("click", (event) => {
+          event.stopPropagation();
+          editCardLinks();
+        });
+      }
+    }
+
+    function renderCardLinks(card) {
+      const links = cardLinks(card);
+      const chips = links.slice(0, 2).map((link) => `<span class="link-chip">[[${escapeHtml(link)}]]</span>`).join("");
+      return `<div class="card-links" id="cardLinks">${chips}<button class="link-chip add" id="editLinks" type="button">${links.length ? "编辑双链" : "+ 双链"}</button></div>`;
     }
 
     function renderConceptMap(group) {
@@ -1955,7 +2003,7 @@ A: 反面"></textarea>
     function explicitLinkedIndexes(cards, activeIndex) {
       const current = cards[activeIndex];
       if (!current) return [];
-      const targets = wikiLinks(cardConceptText(current));
+      const targets = cardLinks(current).map((item) => item.toLowerCase());
       if (!targets.length) return [];
       return cards
         .map((card, index) => ({ card, index, text: cardConceptText(card).toLowerCase() }))
@@ -1968,6 +2016,30 @@ A: 反面"></textarea>
       return [...String(value || "").matchAll(/\[\[([^\]]{1,24})\]\]/g)]
         .map((match) => match[1].trim().toLowerCase())
         .filter(Boolean);
+    }
+
+    function cardLinks(card) {
+      const explicit = Array.isArray(card.links) ? card.links : [];
+      return uniqueList([...explicit, ...wikiLinks(card.back)])
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 8);
+    }
+
+    function uniqueList(items) {
+      return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
+    }
+
+    function editCardLinks() {
+      const group = activeGroup();
+      const card = group.cards[currentIndex];
+      if (!card) return;
+      const current = cardLinks(card).join("，");
+      const value = prompt("双链概念，用逗号或空格分隔。例：共情，澄清，咨询目标", current);
+      if (value === null) return;
+      card.links = uniqueList(value.split(/[,，、\s]+/)).slice(0, 8);
+      render();
+      showToast("已更新双链");
     }
 
     function uniqueEdges(edges) {
@@ -2017,7 +2089,7 @@ A: 反面"></textarea>
 
     function cardConceptText(card) {
       const sections = extractBackSections(card.back) || {};
-      return [card.front, sections.summary, sections.map, sections.image, sections.case].filter(Boolean).join(" ");
+      return [card.front, sections.summary, sections.map, sections.image, sections.case, ...(Array.isArray(card.links) ? card.links : [])].filter(Boolean).join(" ");
     }
 
     function scoreRelatedCards(cards, currentIndex) {
@@ -2324,7 +2396,8 @@ A: 反面"></textarea>
           return data
             .map((item) => ({
               front: String(item.front ?? item.q ?? item.question ?? "").trim(),
-              back: String(item.back ?? item.a ?? item.answer ?? "").trim()
+              back: String(item.back ?? item.a ?? item.answer ?? "").trim(),
+              links: Array.isArray(item.links) ? uniqueList(item.links).slice(0, 8) : []
             }))
             .filter((item) => item.front && item.back);
         }
@@ -2557,20 +2630,32 @@ A: 反面"></textarea>
       focusStudy();
     });
     els.conceptMap.addEventListener("pointerdown", (event) => {
-      const node = event.target.closest(".graph-node");
-      if (!node || event.button > 0) return;
       const canvas = event.target.closest(".map-canvas");
-      if (!canvas) return;
+      if (!canvas || event.button > 0) return;
+      const node = event.target.closest(".graph-node");
       mapPointerDrag = {
-        cardId: node.dataset.cardId,
+        cardId: node ? node.dataset.cardId : "",
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         node,
         canvas,
+        whole: !node,
+        nodes: [...canvas.querySelectorAll(".graph-node")].map((item) => ({
+          element: item,
+          cardId: item.dataset.cardId,
+          x: parseFloat(item.style.left),
+          y: parseFloat(item.style.top),
+          primary: item === node
+        })),
+        dots: [...canvas.querySelectorAll(".graph-dot")].map((item) => ({
+          element: item,
+          x: parseFloat(item.style.left),
+          y: parseFloat(item.style.top)
+        })),
         active: false
       };
-      if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+      if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
     });
     els.conceptMap.addEventListener("pointermove", (event) => {
       if (!mapPointerDrag || mapPointerDrag.pointerId !== event.pointerId) return;
@@ -2579,14 +2664,24 @@ A: 反面"></textarea>
       if (!mapPointerDrag.active && Math.hypot(dx, dy) < 10) return;
       event.preventDefault();
       mapPointerDrag.active = true;
-      mapPointerDrag.node.classList.add("dragging");
+      if (mapPointerDrag.node) mapPointerDrag.node.classList.add("dragging");
       const rect = mapPointerDrag.canvas.getBoundingClientRect();
-      const x = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 8, 92);
-      const y = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 8, 92);
-      mapPointerDrag.node.style.left = `${x}%`;
-      mapPointerDrag.node.style.top = `${y}%`;
-      mapPointerDrag.x = x;
-      mapPointerDrag.y = y;
+      const dxPct = (dx / rect.width) * 100;
+      const dyPct = (dy / rect.height) * 100;
+      mapPointerDrag.nodes.forEach((item) => {
+        const strength = mapPointerDrag.whole ? 1 : (item.primary ? 1 : 0.38);
+        const x = clampNumber(item.x + dxPct * strength, 8, 92);
+        const y = clampNumber(item.y + dyPct * strength, 8, 92);
+        item.element.style.left = `${x}%`;
+        item.element.style.top = `${y}%`;
+        item.nextX = x;
+        item.nextY = y;
+      });
+      mapPointerDrag.dots.forEach((item) => {
+        const strength = mapPointerDrag.whole ? 0.72 : 0.18;
+        item.element.style.left = `${clampNumber(item.x + dxPct * strength, 4, 96)}%`;
+        item.element.style.top = `${clampNumber(item.y + dyPct * strength, 4, 96)}%`;
+      });
     });
     els.conceptMap.addEventListener("pointerup", (event) => {
       if (!mapPointerDrag || mapPointerDrag.pointerId !== event.pointerId) return;
@@ -2595,11 +2690,13 @@ A: 反面"></textarea>
       els.conceptMap.querySelectorAll(".dragging").forEach((item) => item.classList.remove("dragging"));
       if (!drag.active) return;
       suppressMapClick = true;
-      if (Number.isFinite(drag.x) && Number.isFinite(drag.y)) {
-        setCardMapPosition(activeGroup().id, drag.cardId, drag.x, drag.y);
-        render();
-        showToast("已调整脑图位置");
-      }
+      drag.nodes.forEach((item) => {
+        if (Number.isFinite(item.nextX) && Number.isFinite(item.nextY)) {
+          setCardMapPosition(activeGroup().id, item.cardId, item.nextX, item.nextY);
+        }
+      });
+      render();
+      showToast("已调整图谱位置");
     });
     els.conceptMap.addEventListener("pointercancel", () => {
       mapPointerDrag = null;
