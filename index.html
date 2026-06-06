@@ -559,9 +559,23 @@
       overflow: hidden;
       background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.18)),
-        radial-gradient(circle at 50% 50%, rgba(22, 244, 208, 0.14), transparent 42%);
+        radial-gradient(circle at 50% 50%, rgba(22, 244, 208, 0.16), transparent 34%),
+        radial-gradient(circle at 26% 24%, rgba(255, 77, 141, 0.1), transparent 26%),
+        radial-gradient(circle at 78% 76%, rgba(0, 168, 255, 0.12), transparent 28%);
       box-shadow: var(--inner-light);
       touch-action: none;
+    }
+
+    .map-canvas::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(16, 24, 40, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 24, 40, 0.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask: radial-gradient(circle at 50% 50%, #000 0 58%, transparent 88%);
+      pointer-events: none;
     }
 
     .map-lines {
@@ -575,15 +589,22 @@
 
     .map-lines path {
       fill: none;
-      stroke: rgba(124, 58, 237, 0.34);
-      stroke-width: 1.35;
+      stroke: rgba(124, 58, 237, 0.32);
+      stroke-width: 1.25;
       stroke-linecap: round;
       stroke-linejoin: round;
+      stroke-dasharray: 5 8;
+      animation: graphFlow 3.8s linear infinite;
     }
 
     .map-lines path.active {
       stroke: rgba(255, 77, 141, 0.62);
-      stroke-width: 1.8;
+      stroke-width: 1.75;
+      stroke-dasharray: 7 7;
+    }
+
+    @keyframes graphFlow {
+      to { stroke-dashoffset: -26; }
     }
 
     .map-node.graph-node {
@@ -597,6 +618,20 @@
       cursor: grab;
       touch-action: none;
       padding: 7px 11px;
+      animation: nodeFloat 5.5s ease-in-out infinite;
+    }
+
+    .map-node.graph-node:nth-of-type(2n) {
+      animation-delay: -1.4s;
+    }
+
+    .map-node.graph-node:nth-of-type(3n) {
+      animation-delay: -2.6s;
+    }
+
+    @keyframes nodeFloat {
+      0%, 100% { margin-top: 0; }
+      50% { margin-top: -4px; }
     }
 
     .map-node.graph-node b,
@@ -606,11 +641,12 @@
 
     .map-node.graph-node.active {
       transform: translate(-50%, -50%) scale(1.18);
-      max-width: 150px;
-      min-height: 42px;
-      padding: 9px 14px;
-      font-size: 14px;
+      max-width: 168px;
+      min-height: 46px;
+      padding: 10px 16px;
+      font-size: 15px;
       z-index: 4;
+      animation: none;
     }
 
     .map-empty {
@@ -1487,7 +1523,7 @@ A: 反面"></textarea>
   <script>
     const STORAGE_KEY = "ipad-memory-cards-v1";
     const TIMER_KEY = "ipad-memory-cards-timer-seconds";
-    const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v2";
+    const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v3";
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1832,43 +1868,46 @@ A: 反面"></textarea>
       const from = nodes.find((node) => node.cardId === edge.from);
       const to = nodes.find((node) => node.cardId === edge.to);
       if (!from || !to) return "";
-      const root = from.cardId === activeCardId ? from : to.cardId === activeCardId ? to : from;
-      const leaf = root === from ? to : from;
-      const elbow = root.x + (leaf.x > root.x ? 13 : -13);
+      const dx = Math.abs(from.x - to.x);
+      const dy = Math.abs(from.y - to.y);
+      const curve = Math.min(18, Math.max(8, (dx + dy) / 5));
+      const c1x = from.x + (to.x > from.x ? curve : -curve);
+      const c2x = to.x + (to.x > from.x ? -curve : curve);
       const active = from.cardId === activeCardId || to.cardId === activeCardId ? " active" : "";
-      return `<path class="${active}" d="M ${root.x} ${root.y} H ${elbow} V ${leaf.y} H ${leaf.x}" />`;
+      return `<path class="${active}" d="M ${from.x} ${from.y} C ${c1x} ${from.y}, ${c2x} ${to.y}, ${to.x} ${to.y}" />`;
     }
 
     function localGraphIndexes(cards, activeIndex) {
       const indexes = new Set([activeIndex]);
-      const currentTokens = keywordTokens(cardConceptText(cards[activeIndex] || {}));
-      if (activeIndex > 0) indexes.add(activeIndex - 1);
-      if (activeIndex + 1 < cards.length) indexes.add(activeIndex + 1);
       scoreRelatedCards(cards, activeIndex)
-        .filter((item) => item.shared.some((token) => currentTokens.has(token)))
-        .slice(0, 2)
+        .slice(0, 5)
         .forEach((item) => indexes.add(item.index));
+      if (indexes.size < 6 && activeIndex > 0) indexes.add(activeIndex - 1);
+      if (indexes.size < 6 && activeIndex + 1 < cards.length) indexes.add(activeIndex + 1);
+      if (indexes.size < 6 && activeIndex > 1) indexes.add(activeIndex - 2);
+      if (indexes.size < 6 && activeIndex + 2 < cards.length) indexes.add(activeIndex + 2);
       return [...indexes].sort((a, b) => a - b);
     }
 
     function defaultGraphPosition(index, activeIndex, visibleIndexes) {
       if (index === activeIndex) return { x: 50, y: 50 };
-      const offset = index - activeIndex;
-      if (offset < 0) return { x: 23, y: 50 };
-      const rightIndexes = visibleIndexes.filter((item) => item > activeIndex);
-      const rightSlot = Math.max(0, rightIndexes.indexOf(index));
-      if (offset === 1) return { x: 76, y: 35 };
-      return { x: 76, y: 63 + Math.min(rightSlot, 1) * 14 };
-      return { x: 50, y: 50 };
+      const neighbors = visibleIndexes.filter((item) => item !== activeIndex);
+      const slot = Math.max(0, neighbors.indexOf(index));
+      const positions = [
+        { x: 72, y: 32 },
+        { x: 75, y: 66 },
+        { x: 27, y: 34 },
+        { x: 25, y: 66 },
+        { x: 50, y: 82 }
+      ];
+      return positions[slot] || { x: 50, y: 18 };
     }
 
     function buildGraphEdges(cards, activeIndex) {
       const edges = [];
       if (!cards[activeIndex]) return edges;
-      if (activeIndex > 0) edges.push({ from: cards[activeIndex - 1].id, to: cards[activeIndex].id });
-      if (activeIndex + 1 < cards.length) edges.push({ from: cards[activeIndex].id, to: cards[activeIndex + 1].id });
-      scoreRelatedCards(cards, activeIndex).slice(0, 2).forEach((item) => {
-        edges.push({ from: cards[activeIndex].id, to: cards[item.index].id });
+      localGraphIndexes(cards, activeIndex).forEach((index) => {
+        if (index !== activeIndex) edges.push({ from: cards[activeIndex].id, to: cards[index].id });
       });
       return uniqueEdges(edges);
     }
