@@ -589,18 +589,18 @@
 
     .map-lines path {
       fill: none;
-      stroke: rgba(124, 58, 237, 0.32);
-      stroke-width: 1.25;
+      stroke: rgba(92, 105, 128, 0.22);
+      stroke-width: 0.72;
       stroke-linecap: round;
       stroke-linejoin: round;
-      stroke-dasharray: 5 8;
-      animation: graphFlow 3.8s linear infinite;
+      stroke-dasharray: 3 10;
+      animation: graphFlow 5.8s linear infinite;
     }
 
     .map-lines path.active {
-      stroke: rgba(255, 77, 141, 0.62);
-      stroke-width: 1.75;
-      stroke-dasharray: 7 7;
+      stroke: rgba(93, 95, 239, 0.38);
+      stroke-width: 1.05;
+      stroke-dasharray: 4 9;
     }
 
     @keyframes graphFlow {
@@ -647,6 +647,18 @@
       font-size: 15px;
       z-index: 4;
       animation: none;
+    }
+
+    .graph-dot {
+      position: absolute;
+      z-index: 1;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      background: rgba(92, 105, 128, 0.2);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+      pointer-events: none;
     }
 
     .map-empty {
@@ -1523,7 +1535,7 @@ A: 反面"></textarea>
   <script>
     const STORAGE_KEY = "ipad-memory-cards-v1";
     const TIMER_KEY = "ipad-memory-cards-timer-seconds";
-    const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v3";
+    const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v4";
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1609,6 +1621,7 @@ A: 反面"></textarea>
 10. 相邻卡片之间要有清晰递进关系：前一张铺垫，后一张延伸；同类概念尽量连续输出。
 11. 如果两个知识点有层级关系，正面和思维导图里要重复同一个关键词，例如「共情」「澄清」「目标」，方便程序识别并只连接真正相关的卡片。
 12. 不要为了连接而硬凑关系；没有逻辑关系的卡片不要写相同关键词。
+13. 如果某张卡和另一个关键概念存在明确双向联系，可在反面任意一块中写 [[概念名]]，程序会把它当作双链优先连接；不要滥用双链。
 
 **示例：**
 共情的核心是什么？ | 一句话答案：共情不是简单说「我懂你」，而是准确说出来访者的感受。
@@ -1827,6 +1840,7 @@ A: 反面"></textarea>
           <svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             ${graph.edges.map((edge) => mapEdgePath(edge, graph.nodes, current.id)).join("")}
           </svg>
+          ${graph.dots.map(mapGraphDot).join("")}
           ${graph.nodes.map(mapGraphNode).join("")}
         </div>
       `;
@@ -1852,7 +1866,7 @@ A: 反面"></textarea>
           y: position.y
         };
       });
-      return { nodes, edges: buildGraphEdges(cards, activeIndex) };
+      return { nodes, edges: buildGraphEdges(cards, activeIndex), dots: buildGraphDots(cards, visibleIndexes, activeIndex) };
     }
 
     function mapGraphNode(node) {
@@ -1862,6 +1876,10 @@ A: 反面"></textarea>
           <span>${escapeHtml(node.label)}</span>
         </button>
       `;
+    }
+
+    function mapGraphDot(dot) {
+      return `<span class="graph-dot" style="left:${dot.x}%; top:${dot.y}%;"></span>`;
     }
 
     function mapEdgePath(edge, nodes, activeCardId) {
@@ -1879,6 +1897,9 @@ A: 反面"></textarea>
 
     function localGraphIndexes(cards, activeIndex) {
       const indexes = new Set([activeIndex]);
+      explicitLinkedIndexes(cards, activeIndex)
+        .slice(0, 5)
+        .forEach((index) => indexes.add(index));
       scoreRelatedCards(cards, activeIndex)
         .slice(0, 5)
         .forEach((item) => indexes.add(item.index));
@@ -1903,13 +1924,50 @@ A: 反面"></textarea>
       return positions[slot] || { x: 50, y: 18 };
     }
 
+    function buildGraphDots(cards, visibleIndexes, activeIndex) {
+      const visible = new Set(visibleIndexes);
+      return cards
+        .map((card, index) => ({ card, index }))
+        .filter((item) => !visible.has(item.index))
+        .slice(0, 60)
+        .map(({ index }) => {
+          const angle = (index * 137.5) * Math.PI / 180;
+          const ring = 28 + (index % 4) * 8;
+          return {
+            x: clampNumber(50 + Math.cos(angle) * ring, 8, 92),
+            y: clampNumber(50 + Math.sin(angle) * ring * 0.72, 10, 90)
+          };
+        });
+    }
+
     function buildGraphEdges(cards, activeIndex) {
       const edges = [];
       if (!cards[activeIndex]) return edges;
+      explicitLinkedIndexes(cards, activeIndex).forEach((index) => {
+        edges.push({ from: cards[activeIndex].id, to: cards[index].id });
+      });
       localGraphIndexes(cards, activeIndex).forEach((index) => {
         if (index !== activeIndex) edges.push({ from: cards[activeIndex].id, to: cards[index].id });
       });
       return uniqueEdges(edges);
+    }
+
+    function explicitLinkedIndexes(cards, activeIndex) {
+      const current = cards[activeIndex];
+      if (!current) return [];
+      const targets = wikiLinks(cardConceptText(current));
+      if (!targets.length) return [];
+      return cards
+        .map((card, index) => ({ card, index, text: cardConceptText(card).toLowerCase() }))
+        .filter((item) => item.index !== activeIndex)
+        .filter((item) => targets.some((target) => item.text.includes(target)))
+        .map((item) => item.index);
+    }
+
+    function wikiLinks(value) {
+      return [...String(value || "").matchAll(/\[\[([^\]]{1,24})\]\]/g)]
+        .map((match) => match[1].trim().toLowerCase())
+        .filter(Boolean);
     }
 
     function uniqueEdges(edges) {
