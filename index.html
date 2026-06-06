@@ -377,10 +377,10 @@
     .map-branches {
       position: relative;
       display: grid;
-      gap: 8px;
+      gap: 10px;
       max-height: min(48dvh, 430px);
       overflow: auto;
-      padding: 4px 2px 4px 18px;
+      padding: 6px 2px 6px 18px;
       -webkit-overflow-scrolling: touch;
     }
 
@@ -396,10 +396,25 @@
       opacity: 0.42;
     }
 
-    .map-node {
+    .map-item {
       position: relative;
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
+      gap: 7px;
+    }
+
+    .map-item::before {
+      content: "";
+      position: absolute;
+      left: -10px;
+      top: 21px;
+      width: 12px;
+      height: 2px;
+      background: rgba(124, 58, 237, 0.28);
+    }
+
+    .map-node {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
       width: 100%;
@@ -412,16 +427,6 @@
       box-shadow: var(--inner-light);
       text-align: left;
       transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
-    }
-
-    .map-node::before {
-      content: "";
-      position: absolute;
-      left: -11px;
-      top: 50%;
-      width: 11px;
-      height: 2px;
-      background: rgba(124, 58, 237, 0.28);
     }
 
     .map-node b {
@@ -445,6 +450,16 @@
       font-weight: 850;
     }
 
+    .map-node .map-count {
+      justify-self: end;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.54);
+      color: rgba(16, 24, 40, 0.5);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
     .map-node.active {
       transform: translateX(2px);
       color: var(--ink);
@@ -456,6 +471,40 @@
     .map-node.active b {
       color: #fff;
       background: linear-gradient(135deg, #ff4d8d, #7c3aed);
+    }
+
+    .map-children {
+      display: grid;
+      gap: 6px;
+      margin-left: 32px;
+      padding-left: 12px;
+      border-left: 2px solid rgba(22, 244, 208, 0.38);
+    }
+
+    .map-child {
+      position: relative;
+      min-height: 30px;
+      padding: 7px 9px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.36);
+      border: 1px solid rgba(255, 255, 255, 0.48);
+      color: rgba(16, 24, 40, 0.7);
+      font-size: 12px;
+      font-weight: 820;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-shadow: var(--inner-light);
+    }
+
+    .map-child::before {
+      content: "";
+      position: absolute;
+      left: -13px;
+      top: 50%;
+      width: 12px;
+      height: 2px;
+      background: rgba(22, 244, 208, 0.42);
     }
 
     .map-empty {
@@ -1069,8 +1118,17 @@
       }
 
       .map-branches::before,
-      .map-node::before {
+      .map-item::before,
+      .map-child::before {
         display: none;
+      }
+
+      .map-item {
+        align-content: start;
+      }
+
+      .map-children {
+        margin-left: 14px;
       }
 
       .panel {
@@ -1257,10 +1315,10 @@
           </div>
         </div>
 
-        <aside class="concept-map" aria-label="学习脑图">
+        <aside class="concept-map" aria-label="关系脑图">
           <div class="map-head">
-            <strong>学习脑图</strong>
-            <span id="mapMeta">0 个节点</span>
+            <strong>关系脑图</strong>
+            <span id="mapMeta">0 张</span>
           </div>
           <div class="map-root" id="mapRoot">卡片组</div>
           <div class="map-branches" id="conceptMap"></div>
@@ -1608,37 +1666,122 @@ A: 反面"></textarea>
 
     function renderConceptMap(group) {
       const cards = group.cards || [];
-      els.mapRoot.textContent = group.name || "卡片组";
-      els.mapMeta.textContent = `${cards.length} 个节点`;
+      const current = cards[currentIndex];
+      els.mapRoot.textContent = current ? compactMapLabel(current.front, 12) : (group.name || "卡片组");
+      els.mapMeta.textContent = current ? `${cards.length} 张 · 关系图` : `${cards.length} 张`;
       if (!cards.length) {
-        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组的简明脑图。</p>`;
+        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成卡片之间的关系图。</p>`;
         return;
       }
-      els.conceptMap.innerHTML = cards
-        .map((card, index) => {
-          const active = index === currentIndex ? " active" : "";
-          return `
-            <button class="map-node${active}" type="button" data-map-jump="${index}" title="${escapeHtml(card.front)}">
-              <b>${index + 1}</b>
-              <span>${escapeHtml(compactMapLabel(card))}</span>
-            </button>
-          `;
-        })
-        .join("");
+      const relations = buildCardRelations(cards, currentIndex);
+      els.mapMeta.textContent = `${cards.length} 张 · ${relations.length} 条关系`;
+      els.conceptMap.innerHTML = [
+        relationMapItem({
+          active: true,
+          index: currentIndex,
+          marker: "中",
+          label: compactMapLabel(current.front, 12),
+          type: "当前",
+          reason: "正在背诵的知识点"
+        }),
+        ...relations.map(relationMapItem)
+      ].join("");
       requestAnimationFrame(() => {
-        const activeNode = els.conceptMap.querySelector(".map-node.active");
+        const activeNode = els.conceptMap.querySelector(".map-item.active");
         if (activeNode) activeNode.scrollIntoView({ block: "nearest", inline: "nearest" });
       });
     }
 
-    function compactMapLabel(card) {
-      const sections = extractBackSections(card.back);
-      const raw = (sections && sections.summary) || card.front || "";
-      return raw
+    function relationMapItem(item) {
+      const active = item.active ? " active" : "";
+      const reason = item.reason ? `<div class="map-children"><div class="map-child">${escapeHtml(item.reason)}</div></div>` : "";
+      return `
+        <div class="map-item${active}">
+          <button class="map-node${active}" type="button" data-map-jump="${item.index}" title="${escapeHtml(item.fullTitle || item.label)}">
+            <b>${escapeHtml(item.marker)}</b>
+            <span>${escapeHtml(item.label)}</span>
+            <em class="map-count">${escapeHtml(item.type)}</em>
+          </button>
+          ${reason}
+        </div>
+      `;
+    }
+
+    function buildCardRelations(cards, index) {
+      const relations = [];
+      const current = cards[index];
+      if (!current) return relations;
+      if (index > 0) {
+        relations.push(cardRelation(cards[index - 1], index - 1, "前", "前置", "上一张：通常是理解这张的铺垫"));
+      }
+      if (index + 1 < cards.length) {
+        relations.push(cardRelation(cards[index + 1], index + 1, "后", "后续", "下一张：通常是这张之后的延伸"));
+      }
+      scoreRelatedCards(cards, index)
+        .slice(0, Math.max(0, 5 - relations.length))
+        .forEach((item) => {
+          relations.push(cardRelation(
+            cards[item.index],
+            item.index,
+            "关",
+            "相关",
+            item.shared.length ? `共同关键词：${item.shared.slice(0, 3).join(" / ")}` : "概念相近，可以放在一起复习"
+          ));
+        });
+      return relations;
+    }
+
+    function cardRelation(card, index, marker, type, reason) {
+      return {
+        index,
+        marker,
+        type,
+        reason,
+        label: compactMapLabel(card.front, 12),
+        fullTitle: card.front
+      };
+    }
+
+    function scoreRelatedCards(cards, currentIndex) {
+      const currentTokens = keywordTokens(cardConceptText(cards[currentIndex]));
+      return cards
+        .map((card, index) => {
+          if (index === currentIndex || index === currentIndex - 1 || index === currentIndex + 1) return null;
+          const tokens = keywordTokens(cardConceptText(card));
+          const shared = [...currentTokens].filter((token) => tokens.has(token)).slice(0, 5);
+          return { index, score: shared.length, shared };
+        })
+        .filter((item) => item && item.score > 0)
+        .sort((a, b) => b.score - a.score || Math.abs(a.index - currentIndex) - Math.abs(b.index - currentIndex));
+    }
+
+    function cardConceptText(card) {
+      const sections = extractBackSections(card.back) || {};
+      return [card.front, sections.summary, sections.map, sections.image, sections.case].filter(Boolean).join(" ");
+    }
+
+    function keywordTokens(value) {
+      const text = String(value || "").toLowerCase();
+      const tokens = new Set();
+      const stop = new Set(["一个", "一种", "什么", "为什么", "怎么", "如何", "可以", "不是", "就是", "这个", "那个", "需要", "通过", "说明", "答案", "思维", "导图", "真实", "案例"]);
+      (text.match(/[a-z0-9]{3,}/g) || []).forEach((token) => tokens.add(token));
+      (text.match(/[\u4e00-\u9fff]{2,}/g) || []).forEach((chunk) => {
+        if (chunk.length <= 6 && !stop.has(chunk)) tokens.add(chunk);
+        for (let i = 0; i < chunk.length - 1; i += 1) {
+          const token = chunk.slice(i, i + 2);
+          if (!stop.has(token)) tokens.add(token);
+        }
+      });
+      return tokens;
+    }
+
+    function compactMapLabel(value, limit = 14) {
+      return String(value || "")
         .replace(/^一句话答案[:：]\s*/, "")
+        .replace(/[，。；：:、,.!?？！（）()《》“”"']/g, " ")
         .replace(/\s+/g, " ")
         .trim()
-        .slice(0, 34) || "未命名节点";
+        .slice(0, limit) || "未命名";
     }
 
     function renderCardList(group) {
