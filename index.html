@@ -1565,6 +1565,8 @@ A: 反面"></textarea>
 8. 宁可多拆卡，也不要一张卡太拥挤。
 9. 思维导图第一行必须是2-6个字的「节点短语」，方便程序把这张卡显示成思维导图节点。
 10. 相邻卡片之间要有清晰递进关系：前一张铺垫，后一张延伸；同类概念尽量连续输出。
+11. 如果两个知识点有层级关系，正面和思维导图里要重复同一个关键词，例如「共情」「澄清」「目标」，方便程序识别并只连接真正相关的卡片。
+12. 不要为了连接而硬凑关系；没有逻辑关系的卡片不要写相同关键词。
 
 **示例：**
 共情的核心是什么？ | 一句话答案：共情不是简单说「我懂你」，而是准确说出来访者的感受。
@@ -1772,7 +1774,7 @@ A: 反面"></textarea>
       const cards = group.cards || [];
       const current = cards[currentIndex];
       els.mapRoot.textContent = group.name || "卡片组";
-      els.mapMeta.textContent = current ? `${cards.length} 张 · 连接图` : `${cards.length} 张`;
+      els.mapMeta.textContent = current ? `${cards.length} 张 · 局部关系` : `${cards.length} 张`;
       if (!cards.length) {
         els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组卡片的连接思维导图。</p>`;
         return;
@@ -1791,11 +1793,13 @@ A: 反面"></textarea>
     function buildMapGraph(group, activeIndex) {
       const layout = mapLayouts[group.id] || {};
       const cards = group.cards || [];
-      const nodes = cards.map((card, index) => {
+      const visibleIndexes = localGraphIndexes(cards, activeIndex);
+      const nodes = visibleIndexes.map((index) => {
+        const card = cards[index];
         const saved = layout[card.id];
         const position = saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
           ? saved
-          : defaultGraphPosition(index, cards.length, activeIndex);
+          : defaultGraphPosition(index, activeIndex);
         return {
           index,
           cardId: card.id,
@@ -1827,25 +1831,33 @@ A: 反面"></textarea>
       return `<path class="${active}" d="M ${from.x} ${from.y} H ${mid} V ${to.y} H ${to.x}" />`;
     }
 
-    function defaultGraphPosition(index, count, activeIndex) {
+    function localGraphIndexes(cards, activeIndex) {
+      const indexes = new Set([activeIndex]);
+      const currentTokens = keywordTokens(cardConceptText(cards[activeIndex] || {}));
+      if (activeIndex > 0) indexes.add(activeIndex - 1);
+      if (activeIndex + 1 < cards.length) indexes.add(activeIndex + 1);
+      scoreRelatedCards(cards, activeIndex)
+        .filter((item) => item.shared.some((token) => currentTokens.has(token)))
+        .slice(0, 2)
+        .forEach((item) => indexes.add(item.index));
+      return [...indexes].sort((a, b) => a - b);
+    }
+
+    function defaultGraphPosition(index, activeIndex) {
       if (index === activeIndex) return { x: 50, y: 50 };
       const offset = index - activeIndex;
-      const ring = Math.min(3, Math.max(1, Math.ceil(Math.abs(offset) / 3)));
-      const angle = (-90 + offset * 42) * Math.PI / 180;
-      const radiusX = 16 + ring * 9;
-      const radiusY = 13 + ring * 8;
-      return {
-        x: clampNumber(50 + Math.cos(angle) * radiusX, 12, 88),
-        y: clampNumber(50 + Math.sin(angle) * radiusY, 12, 88)
-      };
+      if (offset < 0) return { x: 28, y: 50 };
+      if (offset === 1) return { x: 72, y: 42 };
+      if (offset > 1) return { x: 72, y: 64 };
+      return { x: 50, y: 50 };
     }
 
     function buildGraphEdges(cards, activeIndex) {
       const edges = [];
-      for (let index = 0; index < cards.length - 1; index += 1) {
-        edges.push({ from: cards[index].id, to: cards[index + 1].id });
-      }
-      scoreRelatedCards(cards, activeIndex).slice(0, 4).forEach((item) => {
+      if (!cards[activeIndex]) return edges;
+      if (activeIndex > 0) edges.push({ from: cards[activeIndex - 1].id, to: cards[activeIndex].id });
+      if (activeIndex + 1 < cards.length) edges.push({ from: cards[activeIndex].id, to: cards[activeIndex + 1].id });
+      scoreRelatedCards(cards, activeIndex).slice(0, 2).forEach((item) => {
         edges.push({ from: cards[activeIndex].id, to: cards[item.index].id });
       });
       return uniqueEdges(edges);
