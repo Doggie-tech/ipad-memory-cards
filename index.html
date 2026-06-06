@@ -325,6 +325,147 @@
       gap: 16px;
     }
 
+    .concept-map {
+      display: grid;
+      gap: 14px;
+      min-height: 180px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.62);
+      border-radius: 28px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.32)),
+        radial-gradient(circle at 16% 12%, rgba(255, 77, 141, 0.14), transparent 28%),
+        radial-gradient(circle at 88% 92%, rgba(0, 168, 255, 0.15), transparent 32%);
+      box-shadow: 0 18px 48px rgba(35, 47, 72, 0.1), var(--inner-light);
+      backdrop-filter: blur(28px) saturate(1.35);
+    }
+
+    .map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .map-head strong {
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .map-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .map-root {
+      justify-self: center;
+      max-width: 100%;
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: #fff;
+      background: linear-gradient(135deg, #ff4d8d, #7c3aed 54%, #00a8ff);
+      box-shadow: 0 14px 30px rgba(124, 58, 237, 0.22), var(--inner-light);
+      font-size: 14px;
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .map-branches {
+      position: relative;
+      display: grid;
+      gap: 8px;
+      max-height: min(48dvh, 430px);
+      overflow: auto;
+      padding: 4px 2px 4px 18px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .map-branches::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      left: 8px;
+      width: 2px;
+      border-radius: 99px;
+      background: linear-gradient(var(--accent), var(--aqua), var(--blue));
+      opacity: 0.42;
+    }
+
+    .map-node {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 10px;
+      border-radius: 16px;
+      color: rgba(16, 24, 40, 0.72);
+      background: rgba(255, 255, 255, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: var(--inner-light);
+      text-align: left;
+      transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    .map-node::before {
+      content: "";
+      position: absolute;
+      left: -11px;
+      top: 50%;
+      width: 11px;
+      height: 2px;
+      background: rgba(124, 58, 237, 0.28);
+    }
+
+    .map-node b {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.7);
+      color: rgba(16, 24, 40, 0.58);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .map-node span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .map-node.active {
+      transform: translateX(2px);
+      color: var(--ink);
+      background: linear-gradient(135deg, rgba(255, 77, 141, 0.2), rgba(22, 244, 208, 0.2), rgba(255, 255, 255, 0.64));
+      border-color: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 12px 26px rgba(0, 168, 255, 0.14), var(--inner-light);
+    }
+
+    .map-node.active b {
+      color: #fff;
+      background: linear-gradient(135deg, #ff4d8d, #7c3aed);
+    }
+
+    .map-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
     .card-wrap {
       perspective: 1400px;
       min-height: min(68dvh, 700px);
@@ -914,8 +1055,38 @@
         grid-template-columns: 1fr;
       }
 
+      .concept-map {
+        padding: 14px;
+      }
+
+      .map-branches {
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(160px, 220px);
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-height: none;
+        padding: 4px 2px 6px;
+      }
+
+      .map-branches::before,
+      .map-node::before {
+        display: none;
+      }
+
       .panel {
         max-width: none;
+      }
+    }
+
+    @media (min-width: 1080px) {
+      .stage {
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+        align-items: start;
+      }
+
+      .concept-map {
+        position: sticky;
+        top: max(18px, env(safe-area-inset-top));
       }
     }
 
@@ -1085,6 +1256,15 @@
             <span class="timer-track" aria-hidden="true"><span class="timer-fill" id="timerFill"></span></span>
           </div>
         </div>
+
+        <aside class="concept-map" aria-label="学习脑图">
+          <div class="map-head">
+            <strong>学习脑图</strong>
+            <span id="mapMeta">0 个节点</span>
+          </div>
+          <div class="map-root" id="mapRoot">卡片组</div>
+          <div class="map-branches" id="conceptMap"></div>
+        </aside>
 
         <aside class="panel" aria-label="编辑和导入">
           <div class="tabs">
@@ -1294,6 +1474,9 @@ A: 反面"></textarea>
       timerText: $("timerText"),
       timerFill: $("timerFill"),
       timerSeconds: $("timerSeconds"),
+      mapRoot: $("mapRoot"),
+      mapMeta: $("mapMeta"),
+      conceptMap: $("conceptMap"),
       meter: $("meter"),
       drawerScrim: $("drawerScrim"),
       openGroups: $("openGroups"),
@@ -1400,6 +1583,7 @@ A: 反面"></textarea>
       els.prevCard.disabled = count <= 1;
       els.nextCard.disabled = count <= 1;
       els.flipCard.disabled = count === 0;
+      renderConceptMap(group);
 
       if (!count) {
         els.cardHost.innerHTML = `<div class="empty">先添加一张卡片，或把 GPT 生成的卡片批量粘贴进来。</div>`;
@@ -1420,6 +1604,41 @@ A: 反面"></textarea>
         </div>
       `;
       $("studyCard").addEventListener("click", flip);
+    }
+
+    function renderConceptMap(group) {
+      const cards = group.cards || [];
+      els.mapRoot.textContent = group.name || "卡片组";
+      els.mapMeta.textContent = `${cards.length} 个节点`;
+      if (!cards.length) {
+        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组的简明脑图。</p>`;
+        return;
+      }
+      els.conceptMap.innerHTML = cards
+        .map((card, index) => {
+          const active = index === currentIndex ? " active" : "";
+          return `
+            <button class="map-node${active}" type="button" data-map-jump="${index}" title="${escapeHtml(card.front)}">
+              <b>${index + 1}</b>
+              <span>${escapeHtml(compactMapLabel(card))}</span>
+            </button>
+          `;
+        })
+        .join("");
+      requestAnimationFrame(() => {
+        const activeNode = els.conceptMap.querySelector(".map-node.active");
+        if (activeNode) activeNode.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+    }
+
+    function compactMapLabel(card) {
+      const sections = extractBackSections(card.back);
+      const raw = (sections && sections.summary) || card.front || "";
+      return raw
+        .replace(/^一句话答案[:：]\s*/, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 34) || "未命名节点";
     }
 
     function renderCardList(group) {
@@ -1903,6 +2122,20 @@ A: 反面"></textarea>
     els.prevCard.addEventListener("click", () => move(-1));
     els.nextCard.addEventListener("click", () => move(1));
     els.flipCard.addEventListener("click", smartAdvance);
+    els.conceptMap.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-map-jump]");
+      if (!button) return;
+      if (timerLocked()) {
+        nudgeTimer();
+        return;
+      }
+      currentIndex = Number(button.dataset.mapJump) || 0;
+      flipped = false;
+      motivationIndex += 1;
+      stopReadingTimer();
+      render();
+      focusStudy();
+    });
     els.openGroups.addEventListener("click", () => openDrawer("left"));
     els.openEditor.addEventListener("click", () => openDrawer("right"));
     els.drawerScrim.addEventListener("click", closeDrawers);
