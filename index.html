@@ -362,12 +362,12 @@
     .map-root {
       justify-self: center;
       max-width: 100%;
-      padding: 10px 14px;
+      padding: 8px 13px;
       border-radius: 999px;
       color: #fff;
       background: linear-gradient(135deg, #ff4d8d, #7c3aed 54%, #00a8ff);
       box-shadow: 0 14px 30px rgba(124, 58, 237, 0.22), var(--inner-light);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 900;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -377,50 +377,95 @@
     .map-branches {
       position: relative;
       display: grid;
-      gap: 10px;
+      gap: 9px;
       max-height: min(48dvh, 430px);
       overflow: auto;
-      padding: 6px 2px 6px 18px;
+      padding: 8px 2px 6px;
       -webkit-overflow-scrolling: touch;
     }
 
-    .map-branches::before {
+    .map-level {
+      position: relative;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-height: 58px;
+      padding: 9px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.48);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.44), rgba(255, 255, 255, 0.22)),
+        linear-gradient(90deg, rgba(255, 77, 141, 0.08), rgba(22, 244, 208, 0.08));
+      box-shadow: var(--inner-light);
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .map-level::before {
       content: "";
       position: absolute;
-      top: 10px;
-      bottom: 10px;
-      left: 8px;
+      left: 33px;
+      top: -10px;
       width: 2px;
-      border-radius: 99px;
-      background: linear-gradient(var(--accent), var(--aqua), var(--blue));
-      opacity: 0.42;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(124, 58, 237, 0.24);
+    }
+
+    .map-level:first-child::before {
+      display: none;
+    }
+
+    .map-level.drag-over {
+      transform: translateX(2px);
+      border-color: rgba(124, 58, 237, 0.42);
+      background: linear-gradient(135deg, rgba(255, 77, 141, 0.14), rgba(22, 244, 208, 0.16), rgba(255, 255, 255, 0.42));
+    }
+
+    .map-level-title {
+      display: grid;
+      gap: 2px;
+      justify-items: center;
+      color: rgba(16, 24, 40, 0.56);
+      font-size: 12px;
+      font-weight: 920;
+    }
+
+    .map-level-title::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--aqua));
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.48);
+    }
+
+    .map-level-title span {
+      color: rgba(16, 24, 40, 0.42);
+      font-size: 11px;
+    }
+
+    .map-level-nodes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      min-width: 0;
     }
 
     .map-item {
       position: relative;
-      display: grid;
-      gap: 7px;
-    }
-
-    .map-item::before {
-      content: "";
-      position: absolute;
-      left: -10px;
-      top: 21px;
-      width: 12px;
-      height: 2px;
-      background: rgba(124, 58, 237, 0.28);
+      min-width: 0;
     }
 
     .map-node {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 8px;
+      display: inline-grid;
+      grid-template-columns: auto minmax(0, auto);
+      gap: 6px;
       align-items: center;
-      width: 100%;
-      min-height: 44px;
-      padding: 9px 10px;
-      border-radius: 16px;
+      max-width: 118px;
+      min-height: 32px;
+      padding: 6px 9px;
+      border-radius: 999px;
       color: rgba(16, 24, 40, 0.72);
       background: rgba(255, 255, 255, 0.42);
       border: 1px solid rgba(255, 255, 255, 0.5);
@@ -429,15 +474,25 @@
       transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
     }
 
+    .map-node[draggable="true"] {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .map-node.dragging {
+      opacity: 0.56;
+      transform: scale(0.98);
+    }
+
     .map-node b {
       display: grid;
       place-items: center;
-      width: 24px;
-      height: 24px;
+      width: 18px;
+      height: 18px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.7);
       color: rgba(16, 24, 40, 0.58);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
     }
 
@@ -446,26 +501,20 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 850;
     }
 
     .map-node .map-count {
-      justify-self: end;
-      padding: 3px 7px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.54);
-      color: rgba(16, 24, 40, 0.5);
-      font-size: 11px;
-      font-weight: 900;
+      display: none;
     }
 
     .map-node.active {
-      transform: translateX(2px);
+      transform: translateY(-1px) scale(1.05);
       color: var(--ink);
-      background: linear-gradient(135deg, rgba(255, 77, 141, 0.2), rgba(22, 244, 208, 0.2), rgba(255, 255, 255, 0.64));
+      background: linear-gradient(135deg, rgba(255, 77, 141, 0.3), rgba(22, 244, 208, 0.28), rgba(255, 255, 255, 0.74));
       border-color: rgba(255, 255, 255, 0.86);
-      box-shadow: 0 12px 26px rgba(0, 168, 255, 0.14), var(--inner-light);
+      box-shadow: 0 14px 28px rgba(0, 168, 255, 0.18), 0 0 0 4px rgba(255, 77, 141, 0.14), var(--inner-light);
     }
 
     .map-node.active b {
@@ -474,11 +523,7 @@
     }
 
     .map-children {
-      display: grid;
-      gap: 6px;
-      margin-left: 32px;
-      padding-left: 12px;
-      border-left: 2px solid rgba(22, 244, 208, 0.38);
+      display: none;
     }
 
     .map-child {
@@ -1110,15 +1155,13 @@
 
       .map-branches {
         grid-auto-flow: column;
-        grid-auto-columns: minmax(160px, 220px);
+        grid-auto-columns: minmax(168px, 230px);
         overflow-x: auto;
         overflow-y: hidden;
         max-height: none;
         padding: 4px 2px 6px;
       }
 
-      .map-branches::before,
-      .map-item::before,
       .map-child::before {
         display: none;
       }
@@ -1315,9 +1358,9 @@
           </div>
         </div>
 
-        <aside class="concept-map" aria-label="关系脑图">
+        <aside class="concept-map" aria-label="全景脑图">
           <div class="map-head">
-            <strong>关系脑图</strong>
+            <strong>全景脑图</strong>
             <span id="mapMeta">0 张</span>
           </div>
           <div class="map-root" id="mapRoot">卡片组</div>
@@ -1383,6 +1426,13 @@ A: 反面"></textarea>
   <script>
     const STORAGE_KEY = "ipad-memory-cards-v1";
     const TIMER_KEY = "ipad-memory-cards-timer-seconds";
+    const MAP_LAYOUT_KEY = "ipad-memory-cards-map-layout-v1";
+    const MAP_LEVELS = [
+      { id: "pre", title: "前置", hint: "先懂" },
+      { id: "core", title: "核心", hint: "正在背" },
+      { id: "extend", title: "延伸", hint: "往后用" },
+      { id: "related", title: "相关", hint: "一起记" }
+    ];
 
     const sampleState = {
       activeGroupId: "g-default",
@@ -1412,11 +1462,14 @@ A: 反面"></textarea>
     };
 
     let state = loadState();
+    let mapLayouts = loadMapLayouts();
     let currentIndex = 0;
     let flipped = false;
     let motivationIndex = 0;
     let touchStartX = 0;
     let touchStartY = 0;
+    let mapPointerDrag = null;
+    let suppressMapClick = false;
     let timerSeconds = Number(localStorage.getItem(TIMER_KEY) || 5);
     let timerRemaining = timerSeconds;
     let timerStartedAt = 0;
@@ -1667,92 +1720,99 @@ A: 反面"></textarea>
     function renderConceptMap(group) {
       const cards = group.cards || [];
       const current = cards[currentIndex];
-      els.mapRoot.textContent = current ? compactMapLabel(current.front, 12) : (group.name || "卡片组");
-      els.mapMeta.textContent = current ? `${cards.length} 张 · 关系图` : `${cards.length} 张`;
+      els.mapRoot.textContent = group.name || "卡片组";
+      els.mapMeta.textContent = current ? `${cards.length} 张 · 可拖动` : `${cards.length} 张`;
       if (!cards.length) {
-        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成卡片之间的关系图。</p>`;
+        els.conceptMap.innerHTML = `<p class="map-empty">导入卡片后，这里会自动生成整组卡片的层级思维导图。</p>`;
         return;
       }
-      const relations = buildCardRelations(cards, currentIndex);
-      els.mapMeta.textContent = `${cards.length} 张 · ${relations.length} 条关系`;
-      els.conceptMap.innerHTML = [
-        relationMapItem({
-          active: true,
-          index: currentIndex,
-          marker: "中",
-          label: compactMapLabel(current.front, 12),
-          type: "当前",
-          reason: "正在背诵的知识点"
-        }),
-        ...relations.map(relationMapItem)
-      ].join("");
+      const levels = buildMapLevels(group, currentIndex);
+      els.conceptMap.innerHTML = MAP_LEVELS.map((level) => {
+        const items = levels[level.id] || [];
+        return `
+          <section class="map-level" data-map-level="${level.id}">
+            <div class="map-level-title">${level.title}<span>${level.hint}</span></div>
+            <div class="map-level-nodes">
+              ${items.length ? items.map(mapNodeItem).join("") : `<p class="map-empty">拖到这里</p>`}
+            </div>
+          </section>
+        `;
+      }).join("");
       requestAnimationFrame(() => {
         const activeNode = els.conceptMap.querySelector(".map-item.active");
         if (activeNode) activeNode.scrollIntoView({ block: "nearest", inline: "nearest" });
       });
     }
 
-    function relationMapItem(item) {
+    function mapNodeItem(item) {
       const active = item.active ? " active" : "";
-      const reason = item.reason ? `<div class="map-children"><div class="map-child">${escapeHtml(item.reason)}</div></div>` : "";
+      const child = item.detail ? `<div class="map-children"><div class="map-child">${escapeHtml(item.detail)}</div></div>` : "";
       return `
         <div class="map-item${active}">
-          <button class="map-node${active}" type="button" data-map-jump="${item.index}" title="${escapeHtml(item.fullTitle || item.label)}">
-            <b>${escapeHtml(item.marker)}</b>
+          <button class="map-node${active}" type="button" draggable="true" data-map-jump="${item.index}" data-card-id="${escapeHtml(item.cardId)}" title="${escapeHtml(item.fullTitle || item.label)}">
+            <b>${item.index + 1}</b>
             <span>${escapeHtml(item.label)}</span>
-            <em class="map-count">${escapeHtml(item.type)}</em>
+            <em class="map-count">${escapeHtml(item.levelTitle)}</em>
           </button>
-          ${reason}
+          ${child}
         </div>
       `;
     }
 
-    function buildCardRelations(cards, index) {
-      const relations = [];
-      const current = cards[index];
-      if (!current) return relations;
-      if (index > 0) {
-        relations.push(cardRelation(cards[index - 1], index - 1, "前", "前置", "上一张：通常是理解这张的铺垫"));
-      }
-      if (index + 1 < cards.length) {
-        relations.push(cardRelation(cards[index + 1], index + 1, "后", "后续", "下一张：通常是这张之后的延伸"));
-      }
-      scoreRelatedCards(cards, index)
-        .slice(0, Math.max(0, 5 - relations.length))
-        .forEach((item) => {
-          relations.push(cardRelation(
-            cards[item.index],
-            item.index,
-            "关",
-            "相关",
-            item.shared.length ? `共同关键词：${item.shared.slice(0, 3).join(" / ")}` : "概念相近，可以放在一起复习"
-          ));
+    function buildMapLevels(group, activeIndex) {
+      const levels = Object.fromEntries(MAP_LEVELS.map((level) => [level.id, []]));
+      const layout = mapLayouts[group.id] || {};
+      const activeCard = group.cards[activeIndex];
+      group.cards.forEach((card, index) => {
+        const levelId = layout[card.id] || defaultMapLevel(index, activeIndex);
+        const level = MAP_LEVELS.find((item) => item.id === levelId) || MAP_LEVELS[3];
+        levels[level.id].push({
+          index,
+          cardId: card.id,
+          active: index === activeIndex,
+          label: compactPhrase(card, 6),
+          detail: "",
+          levelTitle: level.title,
+          fullTitle: card.front
         });
-      return relations;
+      });
+      return levels;
     }
 
-    function cardRelation(card, index, marker, type, reason) {
-      return {
-        index,
-        marker,
-        type,
-        reason,
-        label: compactMapLabel(card.front, 12),
-        fullTitle: card.front
-      };
+    function defaultMapLevel(index, activeIndex) {
+      if (index < activeIndex) return "pre";
+      if (index === activeIndex) return "core";
+      if (index <= activeIndex + 3) return "extend";
+      return "related";
     }
 
-    function scoreRelatedCards(cards, currentIndex) {
-      const currentTokens = keywordTokens(cardConceptText(cards[currentIndex]));
-      return cards
-        .map((card, index) => {
-          if (index === currentIndex || index === currentIndex - 1 || index === currentIndex + 1) return null;
-          const tokens = keywordTokens(cardConceptText(card));
-          const shared = [...currentTokens].filter((token) => tokens.has(token)).slice(0, 5);
-          return { index, score: shared.length, shared };
-        })
-        .filter((item) => item && item.score > 0)
-        .sort((a, b) => b.score - a.score || Math.abs(a.index - currentIndex) - Math.abs(b.index - currentIndex));
+    function compactPhrase(card, limit = 8) {
+      const sections = extractBackSections(card.back);
+      const source = (sections && sections.map) || (sections && sections.summary) || card.front || "";
+      const candidates = String(source)
+        .split(/\r?\n|[，。；：:、,.!?？！（）()《》“”"']/)
+        .map((item) => item.replace(/[├└│─\-*]/g, " ").replace(/\s+/g, "").trim())
+        .filter((item) => item.length >= 2);
+      return compactMapLabel(candidates[0] || card.front, limit);
+    }
+
+    function loadMapLayouts() {
+      try {
+        return JSON.parse(localStorage.getItem(MAP_LAYOUT_KEY) || "{}") || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveMapLayouts() {
+      localStorage.setItem(MAP_LAYOUT_KEY, JSON.stringify(mapLayouts));
+    }
+
+    function setCardMapLevel(groupId, cardId, levelId) {
+      if (!MAP_LEVELS.some((level) => level.id === levelId)) return;
+      mapLayouts[groupId] = mapLayouts[groupId] || {};
+      mapLayouts[groupId][cardId] = levelId;
+      saveMapLayouts();
     }
 
     function cardConceptText(card) {
@@ -2266,6 +2326,10 @@ A: 反面"></textarea>
     els.nextCard.addEventListener("click", () => move(1));
     els.flipCard.addEventListener("click", smartAdvance);
     els.conceptMap.addEventListener("click", (event) => {
+      if (suppressMapClick) {
+        suppressMapClick = false;
+        return;
+      }
       const button = event.target.closest("[data-map-jump]");
       if (!button) return;
       if (timerLocked()) {
@@ -2278,6 +2342,81 @@ A: 反面"></textarea>
       stopReadingTimer();
       render();
       focusStudy();
+    });
+    els.conceptMap.addEventListener("dragstart", (event) => {
+      const node = event.target.closest(".map-node");
+      if (!node) return;
+      node.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", node.dataset.cardId);
+    });
+    els.conceptMap.addEventListener("dragend", () => {
+      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
+    });
+    els.conceptMap.addEventListener("dragover", (event) => {
+      const level = event.target.closest("[data-map-level]");
+      if (!level) return;
+      event.preventDefault();
+      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+      level.classList.add("drag-over");
+    });
+    els.conceptMap.addEventListener("drop", (event) => {
+      const level = event.target.closest("[data-map-level]");
+      if (!level) return;
+      event.preventDefault();
+      const cardId = event.dataTransfer.getData("text/plain");
+      if (!cardId) return;
+      setCardMapLevel(activeGroup().id, cardId, level.dataset.mapLevel);
+      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+      render();
+      showToast("已调整脑图层级");
+    });
+    els.conceptMap.addEventListener("pointerdown", (event) => {
+      const node = event.target.closest(".map-node");
+      if (!node || event.button > 0) return;
+      mapPointerDrag = {
+        cardId: node.dataset.cardId,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        node,
+        level: null,
+        active: false
+      };
+      if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+    });
+    els.conceptMap.addEventListener("pointermove", (event) => {
+      if (!mapPointerDrag || mapPointerDrag.pointerId !== event.pointerId) return;
+      const dx = event.clientX - mapPointerDrag.startX;
+      const dy = event.clientY - mapPointerDrag.startY;
+      if (!mapPointerDrag.active && Math.hypot(dx, dy) < 10) return;
+      event.preventDefault();
+      mapPointerDrag.active = true;
+      mapPointerDrag.node.classList.add("dragging");
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const level = target && target.closest ? target.closest("[data-map-level]") : null;
+      els.conceptMap.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+      if (level) {
+        level.classList.add("drag-over");
+        mapPointerDrag.level = level;
+      }
+    });
+    els.conceptMap.addEventListener("pointerup", (event) => {
+      if (!mapPointerDrag || mapPointerDrag.pointerId !== event.pointerId) return;
+      const drag = mapPointerDrag;
+      mapPointerDrag = null;
+      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
+      if (!drag.active) return;
+      suppressMapClick = true;
+      if (drag.level) {
+        setCardMapLevel(activeGroup().id, drag.cardId, drag.level.dataset.mapLevel);
+        render();
+        showToast("已调整脑图层级");
+      }
+    });
+    els.conceptMap.addEventListener("pointercancel", () => {
+      mapPointerDrag = null;
+      els.conceptMap.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
     });
     els.openGroups.addEventListener("click", () => openDrawer("left"));
     els.openEditor.addEventListener("click", () => openDrawer("right"));
