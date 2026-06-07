@@ -1737,8 +1737,6 @@
           <p id="deckMeta">准备开始</p>
         </div>
         <div class="top-actions">
-          <select class="chapter-select" id="chapterSelect" aria-label="章节"></select>
-
           <button class="btn" id="openGroups">卡片组</button>
           <button class="btn" id="openEditor">导入/编辑</button>
           <button class="btn" id="shuffleCards">随机</button>
@@ -2146,9 +2144,12 @@ A: 反面"></textarea>
     }
 
     function renderChapters(group) {
-      if (!els.chapterSelect) return;
       const chapters = groupChapters(group);
       const selected = activeChapter(group);
+      if (!els.chapterSelect) {
+        renderImportChapterOptions(group);
+        return;
+      }
       els.chapterSelect.innerHTML = [
         `<option value="__all">全部章节 (${group.cards.length})</option>`,
         ...chapters.map((chapter) => {
@@ -2184,7 +2185,7 @@ A: 反面"></textarea>
       const count = indexes.length;
       const localIndex = indexes.indexOf(currentIndex);
       els.deckTitle.textContent = group.name;
-      els.deckMeta.textContent = count ? `${chapter === "__all" ? "全部章节" : chapter} · 第 ${localIndex + 1} 张，共 ${count} 张` : (group.cards.length ? "这个章节还没有卡片" : "这个卡片组还没有卡片");
+      els.deckMeta.textContent = "";
       els.progressText.textContent = count ? `${localIndex + 1} / ${count}` : "0 / 0";
       els.sideText.textContent = flipped ? "反面" : "正面";
       els.motivationText.textContent = count ? motivations[motivationIndex % motivations.length] : "先放进一张卡片，今天就开始。";
@@ -2229,7 +2230,7 @@ A: 反面"></textarea>
     function renderChapterHub(group) {
       const chapters = groupChapters(group);
       els.deckTitle.textContent = group.name;
-      els.deckMeta.textContent = chapters.length ? `先选择章节 · 共 ${chapters.length} 个章节` : "这个卡片组还没有章节";
+      els.deckMeta.textContent = "";
       els.progressText.textContent = chapters.length ? `${chapters.length} 章` : "0 章";
       els.sideText.textContent = "章节";
       els.meter.style.width = "0";
@@ -2271,7 +2272,7 @@ A: 反面"></textarea>
     }
 
     function renderCardLinks(card) {
-      const links = cardLinks(card);
+      const links = displayCardLinks(card);
       const chips = links.slice(0, 2).map((link) => `<span class="link-chip">[[${escapeHtml(link)}]]</span>`).join("");
       const editor = linkEditorOpen ? `
         <div class="link-editor" id="linkEditorPanel">
@@ -2438,7 +2439,7 @@ A: 反面"></textarea>
 
     function localGraphIndexes(cards, activeIndex) {
       const linked = explicitLinkedIndexes(cards, activeIndex);
-      if (!linked.length && !cardLinks(cards[activeIndex] || {}).length) return [];
+      if (!linked.length && !displayCardLinks(cards[activeIndex] || {}).length) return [];
       const indexes = new Set([activeIndex]);
       explicitLinkedIndexes(cards, activeIndex)
         .slice(0, 5)
@@ -2492,13 +2493,13 @@ A: 反面"></textarea>
     function linkedCardIndexes(cards) {
       const linked = new Set();
       cards.forEach((card, index) => {
-        if (cardLinks(card).length) linked.add(index);
+        if (displayCardLinks(card).length) linked.add(index);
       });
       cards.forEach((card, index) => {
         const text = cardConceptText(card).toLowerCase();
         cards.forEach((other, otherIndex) => {
           if (index === otherIndex) return;
-          if (cardLinks(other).some((target) => text.includes(target.toLowerCase()))) linked.add(index);
+          if (displayCardLinks(other).some((target) => text.includes(target.toLowerCase()))) linked.add(index);
         });
       });
       return [...linked].sort((a, b) => a - b);
@@ -2513,7 +2514,7 @@ A: 反面"></textarea>
       const activeText = cardConceptText(cards[activeIndex]).toLowerCase();
       cards.forEach((card, index) => {
         if (index === activeIndex) return;
-        const linkedToActive = cardLinks(card).some((target) => activeText.includes(target.toLowerCase()));
+        const linkedToActive = displayCardLinks(card).some((target) => activeText.includes(target.toLowerCase()));
         if (linkedToActive) edges.push({ from: card.id, to: cards[activeIndex].id });
       });
       return uniqueEdges(edges);
@@ -2522,14 +2523,14 @@ A: 反面"></textarea>
     function explicitLinkedIndexes(cards, activeIndex) {
       const current = cards[activeIndex];
       if (!current) return [];
-      const targets = cardLinks(current).map((item) => item.toLowerCase());
+      const targets = displayCardLinks(current).map((item) => item.toLowerCase());
       const activeText = cardConceptText(current).toLowerCase();
       return cards
         .map((card, index) => ({ card, index, text: cardConceptText(card).toLowerCase() }))
         .filter((item) => item.index !== activeIndex)
         .filter((item) => {
           const outbound = targets.some((target) => item.text.includes(target));
-          const inbound = cardLinks(item.card).some((target) => activeText.includes(target.toLowerCase()));
+          const inbound = displayCardLinks(item.card).some((target) => activeText.includes(target.toLowerCase()));
           return outbound || inbound;
         })
         .map((item) => item.index);
@@ -2549,6 +2550,12 @@ A: 反面"></textarea>
         .slice(0, 8);
     }
 
+    function displayCardLinks(card) {
+      if (!card) return [];
+      if (card._autoLinksReady && !card._manualLinksReady && !wikiLinks(card.back).length) return [];
+      return cardLinks(card);
+    }
+
     function uniqueList(items) {
       return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
     }
@@ -2559,8 +2566,8 @@ A: 反面"></textarea>
       if (!source || !target) return;
       source.links = uniqueList([...(Array.isArray(source.links) ? source.links : []), compactPhrase(target, 7)]).slice(0, 8);
       target.card.links = uniqueList([...(Array.isArray(target.card.links) ? target.card.links : []), compactPhrase(source, 7)]).slice(0, 8);
-      source._autoLinksReady = true;
-      target.card._autoLinksReady = true;
+      source._manualLinksReady = true;
+      target.card._manualLinksReady = true;
     }
 
     function removeBacklinkPair(group, sourceIndex, targetLabel) {
@@ -2584,14 +2591,9 @@ A: 反面"></textarea>
     }
 
     function ensureAutoBacklinks(group) {
-      if (!group || !Array.isArray(group.cards) || group.cards.length < 2) return;
-      group.cards.forEach((card, index) => {
+      if (!group || !Array.isArray(group.cards)) return;
+      group.cards.forEach((card) => {
         if (!card.id) card.id = uid("c");
-        if (card._autoLinksReady || cardLinks(card).length) return;
-        const links = autoBacklinkLabels(group.cards, index);
-        if (!links.length) return;
-        links.forEach((link) => addBacklinkPair(group, index, link));
-        card._autoLinksReady = true;
       });
     }
 
