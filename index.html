@@ -1809,6 +1809,10 @@
             </select>
             <label for="promptEditor">可编辑提示词</label>
             <textarea class="prompt-editor" id="promptEditor"></textarea>
+            <label for="importChapterSelect">导入到章节</label>
+            <select id="importChapterSelect"></select>
+            <input class="input" id="importChapterName" placeholder="新建章节名">
+
             <label for="bulkInput">粘贴 GPT 生成的卡片</label>
             <textarea id="bulkInput" placeholder="每行一张：
 正面 | 反面
@@ -2030,6 +2034,8 @@ A: 反面"></textarea>
       bulkInput: $("bulkInput"),
       promptMode: $("promptMode"),
       promptEditor: $("promptEditor"),
+      importChapterSelect: $("importChapterSelect"),
+      importChapterName: $("importChapterName"),
       importCards: $("importCards"),
       copyPrompt: $("copyPrompt"),
       exportDeck: $("exportDeck"),
@@ -2144,15 +2150,28 @@ A: 反面"></textarea>
       const chapters = groupChapters(group);
       const selected = activeChapter(group);
       els.chapterSelect.innerHTML = [
-        `<option value="__chapters">章节目录 (${chapters.length})</option>`,
         `<option value="__all">全部章节 (${group.cards.length})</option>`,
         ...chapters.map((chapter) => {
           const count = group.cards.filter((card) => cardChapter(card) === chapter).length;
           return `<option value="${escapeHtml(chapter)}">${escapeHtml(chapter)} (${count})</option>`;
         })
       ].join("");
-      els.chapterSelect.value = selected;
+      els.chapterSelect.value = selected === "__chapters" ? "__all" : selected;
       els.chapterSelect.disabled = chapters.length <= 1 && !group.cards.length;
+      renderImportChapterOptions(group);
+    }
+
+    function renderImportChapterOptions(group) {
+      if (!els.importChapterSelect) return;
+      const chapters = groupChapters(group);
+      const current = activeChapter(group);
+      els.importChapterSelect.innerHTML = [
+        `<option value="__auto">按文本章节标题自动拆分</option>`,
+        `<option value="__new">新建章节</option>`,
+        ...chapters.map((chapter) => `<option value="${escapeHtml(chapter)}">${escapeHtml(chapter)}</option>`)
+      ].join("");
+      els.importChapterSelect.value = current !== "__chapters" && current !== "__all" && chapters.includes(current) ? current : "__auto";
+      if (els.importChapterName) els.importChapterName.style.display = els.importChapterSelect.value === "__new" ? "block" : "none";
     }
 
     function renderStudy(group) {
@@ -3079,6 +3098,14 @@ A: 反面"></textarea>
       return "";
     }
 
+    function selectedImportChapter() {
+      if (!els.importChapterSelect) return "";
+      const value = els.importChapterSelect.value;
+      if (value === "__auto") return "";
+      if (value === "__new") return (els.importChapterName && els.importChapterName.value.trim()) || "新章节";
+      return value;
+    }
+
     function parseMultilineBlocks(text) {
       return text
         .split(/\n\s*\n/g)
@@ -3144,6 +3171,7 @@ A: 反面"></textarea>
     }
 
     function importCards() {
+      const importChapter = selectedImportChapter();
       const cards = parseBulk(els.bulkInput.value);
       if (!cards.length) {
         showToast("没有识别到卡片，请检查格式");
@@ -3151,8 +3179,9 @@ A: 反面"></textarea>
       }
       const group = activeGroup();
       const selectedChapter = activeChapter(group);
-      const fallbackChapter = selectedChapter === "__all" ? "默认章节" : selectedChapter;
+      const fallbackChapter = importChapter || (selectedChapter === "__all" || selectedChapter === "__chapters" ? "默认章节" : selectedChapter);
       group.cards.push(...cards.map((card) => ({ id: uid("c"), chapter: card.chapter || fallbackChapter, ...card })));
+      if (importChapter) group.activeChapter = importChapter;
       els.bulkInput.value = "";
       currentIndex = Math.max(group.cards.length - cards.length, 0);
       flipped = false;
@@ -3379,6 +3408,11 @@ A: 反面"></textarea>
     els.addCard.addEventListener("click", addCard);
     els.importCards.addEventListener("click", importCards);
     els.promptMode.addEventListener("change", syncPromptTemplate);
+    if (els.importChapterSelect) {
+      els.importChapterSelect.addEventListener("change", () => {
+        if (els.importChapterName) els.importChapterName.style.display = els.importChapterSelect.value === "__new" ? "block" : "none";
+      });
+    }
     if (els.chapterSelect) {
       els.chapterSelect.addEventListener("change", () => {
         const group = activeGroup();
