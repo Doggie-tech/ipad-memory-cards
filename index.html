@@ -266,6 +266,22 @@
       font-weight: 700;
     }
 
+    .chapter-badge {
+      display: inline-flex;
+      width: fit-content;
+      max-width: 100%;
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.48);
+      color: rgba(16, 24, 40, 0.56);
+      font-size: 11px;
+      font-weight: 820;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .side-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -311,6 +327,20 @@
       flex-wrap: wrap;
       justify-content: flex-end;
       gap: 8px;
+    }
+
+    .chapter-select {
+      min-height: 46px;
+      max-width: 190px;
+      padding: 0 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      background: rgba(255, 255, 255, 0.46);
+      color: var(--ink);
+      box-shadow: var(--inner-light);
+      font-weight: 850;
+      outline: none;
+      backdrop-filter: blur(16px) saturate(1.2);
     }
 
     .stage {
@@ -1642,6 +1672,8 @@
           <p id="deckMeta">准备开始</p>
         </div>
         <div class="top-actions">
+          <select class="chapter-select" id="chapterSelect" aria-label="章节"></select>
+
           <button class="btn" id="openGroups">卡片组</button>
           <button class="btn" id="openEditor">导入/编辑</button>
           <button class="btn" id="shuffleCards">随机</button>
@@ -1692,6 +1724,9 @@
           </div>
 
           <div class="pane active" id="pane-add">
+            <label for="chapterInput">章节</label>
+            <input class="input" id="chapterInput" placeholder="例如：第一章 / 情绪理论 / 默认">
+
             <label for="frontInput">正面</label>
             <textarea id="frontInput" placeholder="例如：什么是间隔重复？"></textarea>
             <label for="backInput">反面</label>
@@ -1896,6 +1931,7 @@ A: 反面"></textarea>
       deleteGroup: $("deleteGroup"),
       deckTitle: $("deckTitle"),
       deckMeta: $("deckMeta"),
+      chapterSelect: $("chapterSelect"),
       cardHost: $("cardHost"),
       prevCard: $("prevCard"),
       nextCard: $("nextCard"),
@@ -1922,6 +1958,7 @@ A: 反面"></textarea>
       cover: $("cover"),
       startStudy: $("startStudy"),
       skipCover: $("skipCover"),
+      chapterInput: $("chapterInput"),
       frontInput: $("frontInput"),
       backInput: $("backInput"),
       addCard: $("addCard"),
@@ -1960,9 +1997,36 @@ A: 反面"></textarea>
       return state.groups.find((group) => group.id === state.activeGroupId) || state.groups[0];
     }
 
+    function cardChapter(card) {
+      return String((card && card.chapter) || "默认章节").trim() || "默认章节";
+    }
+
+    function groupChapters(group) {
+      return uniqueList((group.cards || []).map(cardChapter));
+    }
+
+    function activeChapter(group) {
+      const selected = group.activeChapter || "__all";
+      const chapters = groupChapters(group);
+      return selected === "__all" || chapters.includes(selected) ? selected : "__all";
+    }
+
+    function studyIndexes(group) {
+      const chapter = activeChapter(group);
+      return (group.cards || [])
+        .map((card, index) => ({ card, index }))
+        .filter((item) => chapter === "__all" || cardChapter(item.card) === chapter)
+        .map((item) => item.index);
+    }
+
     function clampIndex() {
       const group = activeGroup();
-      currentIndex = Math.min(Math.max(currentIndex, 0), Math.max(group.cards.length - 1, 0));
+      const indexes = studyIndexes(group);
+      if (!indexes.length) {
+        currentIndex = Math.min(Math.max(currentIndex, 0), Math.max(group.cards.length - 1, 0));
+        return;
+      }
+      if (!indexes.includes(currentIndex)) currentIndex = indexes[0];
     }
 
     function showToast(message) {
@@ -1978,6 +2042,7 @@ A: 反面"></textarea>
       clampIndex();
       ensureAutoBacklinks(group);
       renderGroups(group);
+      renderChapters(group);
       renderStudy(group);
       renderCardList(group);
       saveState();
@@ -2007,14 +2072,32 @@ A: 反面"></textarea>
       });
     }
 
+    function renderChapters(group) {
+      if (!els.chapterSelect) return;
+      const chapters = groupChapters(group);
+      const selected = activeChapter(group);
+      els.chapterSelect.innerHTML = [
+        `<option value="__all">全部章节 (${group.cards.length})</option>`,
+        ...chapters.map((chapter) => {
+          const count = group.cards.filter((card) => cardChapter(card) === chapter).length;
+          return `<option value="${escapeHtml(chapter)}">${escapeHtml(chapter)} (${count})</option>`;
+        })
+      ].join("");
+      els.chapterSelect.value = selected;
+      els.chapterSelect.disabled = chapters.length <= 1;
+    }
+
     function renderStudy(group) {
-      const count = group.cards.length;
+      const indexes = studyIndexes(group);
+      const count = indexes.length;
+      const chapter = activeChapter(group);
+      const localIndex = indexes.indexOf(currentIndex);
       els.deckTitle.textContent = group.name;
-      els.deckMeta.textContent = count ? `当前第 ${currentIndex + 1} 张，共 ${count} 张` : "这个卡片组还没有卡片";
-      els.progressText.textContent = count ? `${currentIndex + 1} / ${count}` : "0 / 0";
+      els.deckMeta.textContent = count ? `${chapter === "__all" ? "全部章节" : chapter} · 第 ${localIndex + 1} 张，共 ${count} 张` : (group.cards.length ? "这个章节还没有卡片" : "这个卡片组还没有卡片");
+      els.progressText.textContent = count ? `${localIndex + 1} / ${count}` : "0 / 0";
       els.sideText.textContent = flipped ? "反面" : "正面";
       els.motivationText.textContent = count ? motivations[motivationIndex % motivations.length] : "先放进一张卡片，今天就开始。";
-      els.meter.style.width = count ? `${((currentIndex + 1) / count) * 100}%` : "0";
+      els.meter.style.width = count ? `${((localIndex + 1) / count) * 100}%` : "0";
       updateTimerDisplay();
       els.prevCard.disabled = count <= 1;
       els.nextCard.disabled = count <= 1;
@@ -2022,7 +2105,7 @@ A: 反面"></textarea>
       renderConceptMap(group);
 
       if (!count) {
-        els.cardHost.innerHTML = `<div class="empty">先添加一张卡片，或把 GPT 生成的卡片批量粘贴进来。</div>`;
+        els.cardHost.innerHTML = `<div class="empty">这个章节还没有卡片。可切回“全部章节”或导入新卡片。</div>`;
         return;
       }
 
@@ -2136,10 +2219,11 @@ A: 反面"></textarea>
     function buildMapGraph(group, activeIndex) {
       const layout = mapLayouts[group.id] || {};
       const cards = group.cards || [];
+      const linkedIndexes = linkedCardIndexes(cards);
       const visibleIndexes = localGraphIndexes(cards, activeIndex);
       const nodes = visibleIndexes.map((index) => {
         const card = cards[index];
-        const position = graphNodePosition(card, index, activeIndex, visibleIndexes, layout);
+        const position = graphNodePosition(card, index, activeIndex, visibleIndexes, layout, linkedIndexes);
         return {
           index,
           cardId: card.id,
@@ -2150,10 +2234,10 @@ A: 反面"></textarea>
           y: position.y
         };
       });
-      return { nodes, edges: buildGraphEdges(cards, activeIndex), dots: buildGraphDots(cards, visibleIndexes, activeIndex) };
+      return { nodes, edges: buildGraphEdges(cards, activeIndex), dots: buildGraphDots(cards, visibleIndexes, activeIndex, linkedIndexes) };
     }
 
-    function graphNodePosition(card, index, activeIndex, visibleIndexes, layout) {
+    function graphNodePosition(card, index, activeIndex, visibleIndexes, layout, linkedIndexes) {
       const saved = layout[card.id];
       if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
         return {
@@ -2161,7 +2245,7 @@ A: 反面"></textarea>
           y: clampNumber(saved.y, 8, 92)
         };
       }
-      return globalGraphPosition(index, activeIndex);
+      return globalGraphPosition(index, activeIndex, linkedIndexes);
     }
 
     function mapGraphNode(node) {
@@ -2211,28 +2295,29 @@ A: 反面"></textarea>
       return positions[slot] || { x: 50, y: 18 };
     }
 
-    function globalGraphPosition(index, activeIndex) {
-      return circularGraphPosition(index, activeIndex);
+    function globalGraphPosition(index, activeIndex, linkedIndexes) {
+      return circularGraphPosition(index, activeIndex, linkedIndexes);
     }
 
-    function buildGraphDots(cards, visibleIndexes, activeIndex) {
+    function buildGraphDots(cards, visibleIndexes, activeIndex, linkedIndexes) {
       const visible = new Set(visibleIndexes);
-      return linkedCardIndexes(cards)
+      return linkedIndexes
         .filter((index) => !visible.has(index))
         .slice(0, 80)
-        .map((index) => ({ cardId: cards[index].id, index, ...graphDotPosition(index, activeIndex) }));
+        .map((index) => ({ cardId: cards[index].id, index, ...graphDotPosition(index, activeIndex, linkedIndexes) }));
     }
 
-    function graphDotPosition(index, activeIndex) {
-      return circularGraphPosition(index, activeIndex);
+    function graphDotPosition(index, activeIndex, linkedIndexes) {
+      return circularGraphPosition(index, activeIndex, linkedIndexes);
     }
 
-    function circularGraphPosition(index, activeIndex) {
-      const relative = index;
-      const angle = ((index * 47) + 18) * Math.PI / 180;
-      const ringSet = [0, 14, 23, 31, 38];
-      const ring = ringSet[Math.abs(relative) % ringSet.length] || 31;
-      const wobble = ((index % 4) - 1.5) * 1.4;
+    function circularGraphPosition(index, activeIndex, linkedIndexes = []) {
+      const list = linkedIndexes.length ? linkedIndexes : [index];
+      const rank = Math.max(0, list.indexOf(index));
+      const total = Math.max(1, list.length);
+      const angle = ((rank / total) * Math.PI * 2) - Math.PI / 2;
+      const ring = total <= 5 ? 28 : (rank % 3 === 0 ? 22 : (rank % 3 === 1 ? 32 : 39));
+      const wobble = total <= 5 ? 0 : ((rank % 4) - 1.5) * 1.2;
       return {
         x: clampNumber(50 + Math.cos(angle) * (ring + wobble), 14, 86),
         y: clampNumber(50 + Math.sin(angle) * (ring + wobble), 14, 86)
@@ -2503,6 +2588,7 @@ A: 反面"></textarea>
         item.innerHTML = `
           <div>
             <strong>${escapeHtml(card.front)}</strong>
+            <em class="chapter-badge">${escapeHtml(cardChapter(card))}</em>
             <span>${escapeHtml(card.back)}</span>
           </div>
           <div class="mini-actions">
@@ -2597,12 +2683,14 @@ A: 反面"></textarea>
 
     function move(step) {
       const group = activeGroup();
-      if (!group.cards.length) return;
+      const indexes = studyIndexes(group);
+      if (!indexes.length) return;
       if (timerLocked()) {
         nudgeTimer();
         return;
       }
-      currentIndex = (currentIndex + step + group.cards.length) % group.cards.length;
+      const currentLocal = Math.max(0, indexes.indexOf(currentIndex));
+      currentIndex = indexes[(currentLocal + step + indexes.length) % indexes.length];
       flipped = false;
       motivationIndex += 1;
       stopReadingTimer();
@@ -2735,11 +2823,13 @@ A: 反面"></textarea>
     function addCard() {
       const front = els.frontInput.value.trim();
       const back = els.backInput.value.trim();
+      const selectedChapter = activeChapter(activeGroup());
+      const chapter = (els.chapterInput && els.chapterInput.value.trim()) || (selectedChapter === "__all" ? "默认章节" : selectedChapter);
       if (!front || !back) {
         showToast("正面和反面都要填写");
         return;
       }
-      activeGroup().cards.push({ id: uid("c"), front, back });
+      activeGroup().cards.push({ id: uid("c"), front, back, chapter });
       els.frontInput.value = "";
       els.backInput.value = "";
       currentIndex = activeGroup().cards.length - 1;
@@ -2759,6 +2849,7 @@ A: 反面"></textarea>
             .map((item) => ({
               front: String(item.front ?? item.q ?? item.question ?? "").trim(),
               back: String(item.back ?? item.a ?? item.answer ?? "").trim(),
+              chapter: String(item.chapter ?? item.section ?? item.part ?? "默认章节").trim() || "默认章节",
               links: Array.isArray(item.links) ? uniqueList(item.links).slice(0, 8) : []
             }))
             .filter((item) => item.front && item.back);
@@ -2766,6 +2857,9 @@ A: 反面"></textarea>
       } catch {
         // Continue with text formats.
       }
+
+      const chapterCards = parseChapteredText(trimmed);
+      if (chapterCards.length) return uniqueCards(chapterCards);
 
       const blockCards = parseMultilineBlocks(trimmed);
       if (blockCards.length) return uniqueCards(blockCards);
@@ -2798,6 +2892,45 @@ A: 反面"></textarea>
         });
       });
       return uniqueCards(cards.filter((card) => card.front && card.back));
+    }
+
+    function parseChapteredText(text) {
+      const sections = [];
+      let currentChapter = "默认章节";
+      let buffer = [];
+      let sawChapter = false;
+      text.split(/\r?\n/).forEach((line) => {
+        const chapter = chapterHeading(line);
+        if (chapter) {
+          if (buffer.join("\n").trim()) sections.push({ chapter: currentChapter, text: buffer.join("\n") });
+          currentChapter = chapter;
+          buffer = [];
+          sawChapter = true;
+          return;
+        }
+        buffer.push(line);
+      });
+      if (buffer.join("\n").trim()) sections.push({ chapter: currentChapter, text: buffer.join("\n") });
+      if (!sawChapter) return [];
+      return sections.flatMap((section) => parseBulk(section.text).map((card) => ({ ...card, chapter: section.chapter })));
+    }
+
+    function chapterHeading(line) {
+      const text = String(line || "").trim();
+      if (!text) return "";
+      const patterns = [
+        /^#{1,6}\s+(.+)$/,
+        /^【(.{1,28})】$/,
+        /^第[一二三四五六七八九十百\d]+[章节讲课部分]\s*[：:、-]?\s*(.*)$/,
+        /^(章节|章|Chapter|Section)\s*[:：]\s*(.+)$/i
+      ];
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match) continue;
+        const name = (match[2] || match[1] || text).trim();
+        return name || text;
+      }
+      return "";
     }
 
     function parseMultilineBlocks(text) {
@@ -2871,7 +3004,9 @@ A: 反面"></textarea>
         return;
       }
       const group = activeGroup();
-      group.cards.push(...cards.map((card) => ({ id: uid("c"), ...card })));
+      const selectedChapter = activeChapter(group);
+      const fallbackChapter = selectedChapter === "__all" ? "默认章节" : selectedChapter;
+      group.cards.push(...cards.map((card) => ({ id: uid("c"), chapter: card.chapter || fallbackChapter, ...card })));
       els.bulkInput.value = "";
       currentIndex = Math.max(group.cards.length - cards.length, 0);
       flipped = false;
@@ -3098,6 +3233,16 @@ A: 反面"></textarea>
     els.addCard.addEventListener("click", addCard);
     els.importCards.addEventListener("click", importCards);
     els.promptMode.addEventListener("change", syncPromptTemplate);
+    if (els.chapterSelect) {
+      els.chapterSelect.addEventListener("change", () => {
+        const group = activeGroup();
+        group.activeChapter = els.chapterSelect.value;
+        currentIndex = 0;
+        flipped = false;
+        stopReadingTimer();
+        render();
+      });
+    }
     els.timerSeconds.addEventListener("change", () => setTimerSeconds(els.timerSeconds.value));
     els.timerSeconds.addEventListener("input", () => setTimerSeconds(els.timerSeconds.value));
     els.copyPrompt.addEventListener("click", copyPrompt);
