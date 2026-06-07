@@ -589,10 +589,11 @@
       border-radius: 24px;
       overflow: hidden;
       background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.18)),
-        radial-gradient(circle at 50% 50%, rgba(22, 244, 208, 0.16), transparent 34%),
-        radial-gradient(circle at 26% 24%, rgba(255, 77, 141, 0.1), transparent 26%),
-        radial-gradient(circle at 78% 76%, rgba(0, 168, 255, 0.12), transparent 28%);
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.42), transparent 20%),
+        radial-gradient(circle at 50% 50%, rgba(22, 244, 208, 0.12), transparent 35%),
+        radial-gradient(circle at 50% 50%, rgba(124, 58, 237, 0.09), transparent 48%),
+        radial-gradient(circle at 50% 50%, rgba(0, 168, 255, 0.11), transparent 64%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.18));
       box-shadow: var(--inner-light);
       touch-action: none;
       cursor: grab;
@@ -604,11 +605,12 @@
       inset: 8%;
       border-radius: 999px;
       background:
-        radial-gradient(circle at 48% 50%, rgba(124, 58, 237, 0.12), transparent 26%),
-        radial-gradient(circle at 58% 48%, rgba(0, 168, 255, 0.12), transparent 34%);
-      filter: blur(18px);
-      opacity: 0.72;
-      animation: graphBreath 7s ease-in-out infinite alternate;
+        radial-gradient(circle, rgba(255, 255, 255, 0.32) 0 8%, transparent 9%),
+        radial-gradient(circle, transparent 0 37%, rgba(255, 255, 255, 0.24) 38%, transparent 39%),
+        radial-gradient(circle, transparent 0 61%, rgba(255, 255, 255, 0.2) 62%, transparent 63%);
+      filter: blur(0.2px);
+      opacity: 0.7;
+      animation: graphBreath 6.5s ease-in-out infinite alternate;
       pointer-events: none;
     }
 
@@ -620,7 +622,7 @@
         linear-gradient(rgba(16, 24, 40, 0.035) 1px, transparent 1px),
         linear-gradient(90deg, rgba(16, 24, 40, 0.035) 1px, transparent 1px);
       background-size: 28px 28px;
-      mask: radial-gradient(circle at 50% 50%, #000 0 58%, transparent 88%);
+      mask: radial-gradient(circle at 50% 50%, #000 0 62%, transparent 77%);
       pointer-events: none;
     }
 
@@ -656,8 +658,8 @@
     }
 
     @keyframes graphBreath {
-      from { transform: translate(-2%, 1%) scale(0.96); opacity: 0.48; }
-      to { transform: translate(2%, -1%) scale(1.05); opacity: 0.78; }
+      from { transform: scale(0.975) rotate(-0.5deg); opacity: 0.52; }
+      to { transform: scale(1.025) rotate(0.5deg); opacity: 0.82; }
     }
 
     .map-node.graph-node {
@@ -671,6 +673,11 @@
       cursor: grab;
       touch-action: none;
       padding: 7px 11px;
+      background:
+        radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.42) 34%, rgba(22, 244, 208, 0.18)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(235, 244, 255, 0.34));
+      border-color: rgba(255, 255, 255, 0.84);
+      box-shadow: 0 12px 24px rgba(35, 47, 72, 0.08), inset 0 1px 4px rgba(255, 255, 255, 0.9), inset -8px -8px 18px rgba(0, 168, 255, 0.08);
       transition: transform 0.28s cubic-bezier(0.18, 1.22, 0.28, 1), opacity 0.2s ease, filter 0.2s ease;
     }
 
@@ -704,6 +711,16 @@
       animation: activeNodePop 0.34s cubic-bezier(0.12, 1.42, 0.26, 1) both, activeNodePulse 3.2s ease-in-out 0.36s infinite;
     }
 
+    .map-node.graph-node.active::after {
+      content: "";
+      position: absolute;
+      inset: -12px;
+      border-radius: 999px;
+      border: 1px solid rgba(124, 58, 237, 0.28);
+      animation: focusRipple 0.7s ease-out both;
+      pointer-events: none;
+    }
+
     .map-node.graph-node.linked-focus {
       filter: saturate(1.18);
       animation: linkedFocusPop 0.26s cubic-bezier(0.12, 1.38, 0.26, 1) both;
@@ -726,6 +743,11 @@
       50% { box-shadow: 0 18px 38px rgba(0, 168, 255, 0.24), 0 0 0 8px rgba(124, 58, 237, 0.1), var(--inner-light); }
     }
 
+    @keyframes focusRipple {
+      from { opacity: 0.78; transform: scale(0.72); }
+      to { opacity: 0; transform: scale(1.42); }
+    }
+
     .graph-dot {
       position: absolute;
       z-index: 1;
@@ -733,22 +755,22 @@
       height: 5px;
       border-radius: 999px;
       transform: translate(-50%, -50%);
-      background: rgba(92, 105, 128, 0.2);
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+      background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.96), rgba(220, 230, 255, 0.54) 42%, rgba(124, 58, 237, 0.24));
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.34), 0 7px 16px rgba(35, 47, 72, 0.08);
       pointer-events: none;
-      animation: dotDrift 8s ease-in-out infinite alternate;
+      animation: dotFloat 5.5s ease-in-out infinite alternate;
     }
 
     .graph-dot.linked {
-      width: 6px;
-      height: 6px;
-      background: rgba(124, 58, 237, 0.34);
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.32), 0 0 18px rgba(0, 168, 255, 0.16);
+      width: 7px;
+      height: 7px;
+      background: radial-gradient(circle at 28% 22%, #fff, rgba(222, 243, 255, 0.82) 38%, rgba(124, 58, 237, 0.36));
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.36), 0 0 20px rgba(0, 168, 255, 0.18);
     }
 
-    @keyframes dotDrift {
-      from { transform: translate(-50%, -50%) translate3d(-3px, 2px, 0); opacity: 0.42; }
-      to { transform: translate(-50%, -50%) translate3d(3px, -2px, 0); opacity: 0.78; }
+    @keyframes dotFloat {
+      from { transform: translate(-50%, -50%) translate3d(-2px, 1px, 0) scale(0.92); opacity: 0.52; }
+      to { transform: translate(-50%, -50%) translate3d(2px, -2px, 0) scale(1.08); opacity: 0.86; }
     }
 
     .map-empty {
@@ -2061,14 +2083,14 @@ A: 反面"></textarea>
       }
       if (remove) {
         const value = remove.dataset.removeLink;
-        card.links = uniqueList(cardLinks(card).filter((link) => link !== value));
+        removeBacklinkPair(group, currentIndex, value);
         render();
         showToast("已删除双链");
         return;
       }
       if (add) {
         const value = add.dataset.addLink;
-        card.links = uniqueList([...cardLinks(card), value]).slice(0, 8);
+        addBacklinkPair(group, currentIndex, value);
         linkQuery = "";
         render();
         showToast("已添加双链");
@@ -2190,13 +2212,7 @@ A: 反面"></textarea>
     }
 
     function globalGraphPosition(index, activeIndex) {
-      const angle = ((index * 137.5) + 24) * Math.PI / 180;
-      const ring = 18 + (index % 5) * 7;
-      const bias = index === activeIndex ? 0 : ((index % 3) - 1) * 4;
-      return {
-        x: clampNumber(50 + Math.cos(angle) * ring + bias, 12, 88),
-        y: clampNumber(50 + Math.sin(angle) * ring * 0.72, 12, 88)
-      };
+      return circularGraphPosition(index, activeIndex);
     }
 
     function buildGraphDots(cards, visibleIndexes, activeIndex) {
@@ -2208,11 +2224,18 @@ A: 反面"></textarea>
     }
 
     function graphDotPosition(index, activeIndex) {
-      const angle = ((index * 137.5) + 24) * Math.PI / 180;
-      const ring = 18 + (index % 5) * 7;
+      return circularGraphPosition(index, activeIndex);
+    }
+
+    function circularGraphPosition(index, activeIndex) {
+      const relative = index;
+      const angle = ((index * 47) + 18) * Math.PI / 180;
+      const ringSet = [0, 14, 23, 31, 38];
+      const ring = ringSet[Math.abs(relative) % ringSet.length] || 31;
+      const wobble = ((index % 4) - 1.5) * 1.4;
       return {
-        x: clampNumber(50 + Math.cos(angle) * ring + ((index % 3) - 1) * 4, 12, 88),
-        y: clampNumber(50 + Math.sin(angle) * ring * 0.72, 12, 88)
+        x: clampNumber(50 + Math.cos(angle) * (ring + wobble), 14, 86),
+        y: clampNumber(50 + Math.sin(angle) * (ring + wobble), 14, 86)
       };
     }
 
@@ -2280,6 +2303,36 @@ A: 反面"></textarea>
       return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
     }
 
+    function addBacklinkPair(group, sourceIndex, targetLabel) {
+      const source = group.cards[sourceIndex];
+      const target = findCardByLinkLabel(group.cards, targetLabel, sourceIndex);
+      if (!source || !target) return;
+      source.links = uniqueList([...(Array.isArray(source.links) ? source.links : []), compactPhrase(target, 7)]).slice(0, 8);
+      target.card.links = uniqueList([...(Array.isArray(target.card.links) ? target.card.links : []), compactPhrase(source, 7)]).slice(0, 8);
+      source._autoLinksReady = true;
+      target.card._autoLinksReady = true;
+    }
+
+    function removeBacklinkPair(group, sourceIndex, targetLabel) {
+      const source = group.cards[sourceIndex];
+      const target = findCardByLinkLabel(group.cards, targetLabel, sourceIndex);
+      if (!source) return;
+      source.links = removeLinkLabel(source.links, targetLabel);
+      if (target) target.card.links = removeLinkLabel(target.card.links, compactPhrase(source, 7));
+    }
+
+    function removeLinkLabel(links, label) {
+      const normalized = String(label || "").toLowerCase();
+      return uniqueList((Array.isArray(links) ? links : []).filter((link) => String(link || "").toLowerCase() !== normalized));
+    }
+
+    function findCardByLinkLabel(cards, label, sourceIndex) {
+      const normalized = String(label || "").toLowerCase();
+      return cards
+        .map((card, index) => ({ card, index, label: compactPhrase(card, 7).toLowerCase(), text: cardConceptText(card).toLowerCase() }))
+        .find((item) => item.index !== sourceIndex && (item.label === normalized || item.text.includes(normalized)));
+    }
+
     function ensureAutoBacklinks(group) {
       if (!group || !Array.isArray(group.cards) || group.cards.length < 2) return;
       group.cards.forEach((card, index) => {
@@ -2287,7 +2340,7 @@ A: 反面"></textarea>
         if (card._autoLinksReady || cardLinks(card).length) return;
         const links = autoBacklinkLabels(group.cards, index);
         if (!links.length) return;
-        card.links = uniqueList([...(Array.isArray(card.links) ? card.links : []), ...links]).slice(0, 3);
+        links.forEach((link) => addBacklinkPair(group, index, link));
         card._autoLinksReady = true;
       });
     }
